@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Upload, User, Users, AlertTriangle, Briefcase, Target, Book, Lightbulb, Building2, Factory, MapPin } from "lucide-react";
 import Papa from "papaparse";
-import type { Mentor, Mentee, MatchWeights } from "@shared/schema";
+import type { Mentor, Mentee, MatchWeights, Match } from "@shared/schema";
 // import { findBestMatches } from "@/lib/matching";
 import { UploadAnimation } from "@/components/ui/upload-animation";
 import { MBTI_PAIRINGS } from "../lib/config";
@@ -72,7 +72,7 @@ export default function AdminPage() {
     mbti: 0.3
   });
 
-  const { data: mentors = [] } = useQuery<Mentor[]>({ 
+  const { data: mentors = [] } = useQuery<Mentor[]>({
     queryKey: ["/api/mentors"]
   });
 
@@ -80,25 +80,27 @@ export default function AdminPage() {
     queryKey: ["/api/mentees"]
   });
 
-  const [matches, setMatches] = useState<{ [key: string]: MatchResult[] }>({}); // To store matches for each mentee
+  const [matches, setMatches] = useState<{ [key: string]: Match[] }>({}); // To store matches for each mentee
 
   useEffect(() => {
     // Fetch matches for each selected mentee
     const fetchMatches = async () => {
-      const matchResults: { [key: string]: MatchResult[] } = {}; // Temporary object to hold all matches
+      const matchResults: { [key: string]: Match[] } = {}; // Temporary object to hold all matches
       for (const menteeId of selectedMentees) {
-        const mentee = mentees.find(m => m.id === menteeId);
-        if (mentee) {
-          const fetchedMatches = await getMatchesForMentee(mentee);
-          matchResults[menteeId] = fetchedMatches; // Store fetched matches by menteeId
+        try{
+        const fetchedMatches = await getMatchesForMentee(menteeId);
+        matchResults[menteeId] = fetchedMatches; // Store fetched matches by menteeId
+        }
+        catch(e){
+          console.error(`Failed to get matches for ${menteeId} - `, e)
         }
       }
       setMatches(matchResults); // Set all fetched matches to state
     };
-  
+
     fetchMatches();
-  }, [selectedMentees, mentees]); // Dependency array ensures this runs when mentees or selectedMentees change
-  
+  }, [selectedMentees]); // Dependency array ensures this runs when mentees or selectedMentees change
+
 
   const uploadMentors = useMutation({
     mutationFn: async (data: Record<string, string>[]) => {
@@ -117,16 +119,16 @@ export default function AdminPage() {
     onSuccess: () => {
       setMentorUploadStatus("success");
       queryClient.invalidateQueries({ queryKey: ["/api/mentors"] });
-      toast({ 
-        title: "Success", 
+      toast({
+        title: "Success",
         description: "Mentor data uploaded successfully",
       });
       setTimeout(() => setMentorUploadStatus("idle"), 2000);
     },
     onError: (error) => {
       setMentorUploadStatus("error");
-      toast({ 
-        title: "Error", 
+      toast({
+        title: "Error",
         description: "Failed to upload mentor data. Please check the console for details.",
         variant: "destructive"
       });
@@ -152,16 +154,16 @@ export default function AdminPage() {
     onSuccess: () => {
       setMenteeUploadStatus("success");
       queryClient.invalidateQueries({ queryKey: ["/api/mentees"] });
-      toast({ 
-        title: "Success", 
+      toast({
+        title: "Success",
         description: "Mentee data uploaded successfully",
       });
       setTimeout(() => setMenteeUploadStatus("idle"), 2000);
     },
     onError: (error) => {
       setMenteeUploadStatus("error");
-      toast({ 
-        title: "Error", 
+      toast({
+        title: "Error",
         description: "Failed to upload mentee data. Please check the console for details.",
         variant: "destructive"
       });
@@ -172,8 +174,8 @@ export default function AdminPage() {
 
   const handleFileUpload = (file: File, type: "mentors" | "mentees") => {
     if (!file) {
-      toast({ 
-        title: "Error", 
+      toast({
+        title: "Error",
         description: "Please select a file to upload",
         variant: "destructive"
       });
@@ -181,8 +183,8 @@ export default function AdminPage() {
     }
 
     if (!file.name.endsWith('.csv')) {
-      toast({ 
-        title: "Error", 
+      toast({
+        title: "Error",
         description: "Please upload a CSV file",
         variant: "destructive"
       });
@@ -198,8 +200,8 @@ export default function AdminPage() {
           const errorMessage = results.errors
             .map(err => `Row ${err.row + 1}: ${err.message}`)
             .join('\n');
-          toast({ 
-            title: "CSV Parse Error", 
+          toast({
+            title: "CSV Parse Error",
             description: `Failed to parse CSV file:\n${errorMessage}`,
             variant: "destructive"
           });
@@ -208,13 +210,13 @@ export default function AdminPage() {
 
         // Validate data structure
         const error = validateCSVData(
-          results.data, 
+          results.data,
           type === "mentors" ? REQUIRED_MENTOR_FIELDS : REQUIRED_MENTEE_FIELDS
         );
 
         if (error) {
-          toast({ 
-            title: "Validation Error", 
+          toast({
+            title: "Validation Error",
             description: error,
             variant: "destructive"
           });
@@ -229,8 +231,8 @@ export default function AdminPage() {
         }
       },
       error: (error) => {
-        toast({ 
-          title: "Error", 
+        toast({
+          title: "Error",
           description: `Failed to parse CSV file: ${error.message}`,
           variant: "destructive"
         });
@@ -238,18 +240,9 @@ export default function AdminPage() {
     });
   };
 
-  // const getMatchesForMentee = (mentee: Mentee) => {
-  //   console.log('mentee', mentee)
-  //   return mentors.map(match => ({
-  //     ...match,
-  //     matchScore: calculateMatchScore(match, mentee, weights)
-  //   }));
-  // };
+  const getMatchesForMentee = async (menteeId: number) => {
+    const userId = encodeURIComponent(menteeId);
 
-  const getMatchesForMentee = async (mentee: Mentee) => {
-    const userId = encodeURIComponent(mentee.id);
-    console.log('Fetching from: ', `/api/matches?userId=${userId}`);
-  
     try {
       const response = await fetch(`/api/matches?userId=${userId}`, {
         method: 'GET',
@@ -257,31 +250,28 @@ export default function AdminPage() {
           'Content-Type': 'application/json',
         },
       });
-  
+
       if (!response.ok) {
         throw new Error(`Error fetching matches: ${response.statusText}`);
       }
-  
+
       const data = await response.json();
-  
+
       if (!data.matches || !Array.isArray(data.matches)) {
         throw new Error('Invalid data format: matches should be an array');
       }
-  
+
       return data.matches;
     } catch (error) {
       console.error('Error fetching mentee matches:', error);
-      return [];
+      throw error;
     }
   };
-  
 
- 
+
 
 
   const renderListBadges = (list?: string[] | string) => {
-    console.log('list', list);
-
     if (!list) {
       return <div className="flex flex-wrap gap-1 mt-1"></div>;
     }
@@ -316,7 +306,7 @@ export default function AdminPage() {
 
   const renderMatchScore = (score: number) => {
     const percentage = Math.round((score || 0) * 100);
-  
+
     const getColor = (type: "bg" | "text") => {
       if (percentage >= 90) return type === "bg" ? "bg-green-600" : "text-green-600";
       if (percentage >= 80) return type === "bg" ? "bg-green-500" : "text-green-500";
@@ -327,9 +317,9 @@ export default function AdminPage() {
       if (percentage >= 30) return type === "bg" ? "bg-orange-400" : "text-orange-400";
       return type === "bg" ? "bg-red-600" : "text-red-600";
     };
-    
-    
-  
+
+
+
     return (
       <div className="flex items-center gap-3">
         {/* Bigger & Bolder Score Text */}
@@ -337,7 +327,7 @@ export default function AdminPage() {
           <span className={`${getColor("text")}`}>{percentage}%</span>{" "}
           <span className="text-gray-700">Match</span>
         </div>
-  
+
         {/* Enlarged Progress Bar */}
         <div className="h-4 w-32 bg-gray-200 rounded-full overflow-hidden shadow-md">
           <div
@@ -348,8 +338,8 @@ export default function AdminPage() {
       </div>
     );
   };
-  
-  
+
+
   return (
     <div className="container mx-auto py-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -364,8 +354,8 @@ export default function AdminPage() {
             <div>
               <label className="block text-sm font-medium mb-2">Mentors CSV</label>
               <div className="space-y-2">
-                <Input 
-                  type="file" 
+                <Input
+                  type="file"
                   accept=".csv"
                   disabled={uploadMentors.isPending}
                   onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], "mentors")}
@@ -376,8 +366,8 @@ export default function AdminPage() {
             <div>
               <label className="block text-sm font-medium mb-2">Mentees CSV</label>
               <div className="space-y-2">
-                <Input 
-                  type="file" 
+                <Input
+                  type="file"
                   accept=".csv"
                   disabled={uploadMentees.isPending}
                   onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], "mentees")}
@@ -394,33 +384,33 @@ export default function AdminPage() {
         </Card>
 
         <Card>
-  <CardHeader>
-    <CardTitle>Match Weights</CardTitle>
-  </CardHeader>
-  <CardContent className="space-y-4">
-    {Object.entries(weights).map(([key, value]) => (
-      <div key={key} className="space-y-2">
-        <div className="flex justify-between items-center">
-          <label className="block text-sm font-medium capitalize">
-            {key.replace(/([A-Z])/g, " $1")}
-          </label>
-          <span className="text-sm font-medium text-muted-foreground">
-            {(value*10).toFixed(0)}
-          </span>
-        </div>
-        <Slider
-          value={[value]}
-          min={0}
-          max={.5}
-          step={0.1}
-          onValueChange={([newValue]) =>
-            setWeights(w => ({ ...w, [key]: newValue }))
-          }
-        />
-      </div>
-    ))}
-  </CardContent>
-</Card>
+          <CardHeader>
+            <CardTitle>Match Weights</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {Object.entries(weights).map(([key, value]) => (
+              <div key={key} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="block text-sm font-medium capitalize">
+                    {key.replace(/([A-Z])/g, " $1")}
+                  </label>
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {(value * 10).toFixed(0)}
+                  </span>
+                </div>
+                <Slider
+                  value={[value]}
+                  min={0}
+                  max={.5}
+                  step={0.1}
+                  onValueChange={([newValue]) =>
+                    setWeights(w => ({ ...w, [key]: newValue }))
+                  }
+                />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
 
       </div>
 
