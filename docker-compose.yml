@@ -11,7 +11,20 @@ services:
     environment:
       - NODE_ENV=development
       - CHOKIDAR_USEPOLLING=1  # Enables hot-reloading in Docker
+      - DATABASE_URL=postgres://postgres:peptokpassword@db:5432/peptok  # Connection string
     command: nodemon --watch . --ext js,ts,json --exec npm run dev
+
+  db:
+    image: postgres:latest
+    volumes:
+      - pgdata:/var/lib/postgresql/data  # Persistent data storage
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=peptokpassword  # Simple password for PostgreSQL
+      - POSTGRES_DB=peptok  # Name of the database to be created
+    ports:
+      - "5432:5432"  # Expose PostgreSQL port
 
 volumes:
   node_modules:
+  pgdata:  # Persistent volume for PostgreSQL data

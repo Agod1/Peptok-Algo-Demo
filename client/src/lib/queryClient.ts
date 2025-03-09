@@ -1,5 +1,4 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { API_BASE_URL, REMOTE_MATCH_URL } from "./config";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -8,14 +7,18 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-export async function apiRequest(method: string, endpoint: string, data?: unknown): Promise<Response> {
-  const url = `${API_BASE_URL}${endpoint}`;
+export async function apiRequest(
+  method: string,
+  url: string,
+  data?: unknown | undefined,
+): Promise<Response> {
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+
   await throwIfResNotOk(res);
   return res;
 }

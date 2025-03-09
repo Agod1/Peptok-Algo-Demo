@@ -8,7 +8,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies, including nodemon for auto-restart
-RUN npm install && npm install -g nodemon
+RUN npm install && npm install -g nodemon && npm install pg
+
 
 # Copy project files
 COPY . .

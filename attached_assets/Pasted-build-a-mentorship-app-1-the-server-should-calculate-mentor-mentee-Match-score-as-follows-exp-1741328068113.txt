@@ -1,0 +1,60 @@
+build a mentorship app:
+
+1. the server should calculate mentor-mentee Match score as follows:
+export function calculateMatch(mentor: Mentor, mentee: Mentee, weights: MatchWeights, ): number {
+  let score = 0;
+  let mbtiPairings: Record<string, string[]> = MBTI_PAIRINGS;
+
+  // MBTI Compatibility Score
+  if (mbtiPairings[mentee.mbti]?.includes(mentor.mbti)) {
+    score += ((3 - mbtiPairings[mentee.mbti].indexOf(mentor.mbti) + 1) / 3) * weights.mbti;
+  }
+
+  // Skills Match Score (Overlap of Preferred Skills & Mentor Skills)
+  const menteeSkills = new Set(mentee.preferred_skills);
+  const mentorSkills = new Set(mentor.skills);
+  const skillMatchScore = (menteeSkills.size && mentorSkills.size)
+    ? (Array.from(menteeSkills).filter(skill => mentorSkills.has(skill)).length / menteeSkills.size) * weights.skills
+    : 0;
+  score += skillMatchScore;
+
+  // Industry Match
+  if (mentee.industry === mentor.industry) {
+    score += weights.industry;
+  }
+
+  // Location Match
+  if (mentee.location === mentor.location) {
+    score += weights.location;
+  }
+
+  // Experience Level Difference (mentor's experience levels should be greater than mentee's)
+  score += (mentor.experience > mentee.experience ? 1 : 0) * weights.experience;
+
+  // Return score
+  return score;
+}
+
+
+2. mentor details:
+id,name,last_work_role,skills,max_match,interests,motivation,location,mbti,experience,image_url
+Example:
+mentor_1,Alex Tremblay,Software Developer,"AI/ML, Sales, Cybersecurity",3,Startups,"Help Healthcare professionals",Halifax,ENTP,17,"upload/image/mentor/alex-1.jpg"
+
+3. Mentee: id,name,career_goals,preferred_skills,industry_specific_needs,interests,last_work_role,location,mbti,experience,image_url
+Example:
+mentee_1,Ethan Clarke,Become a Software Engineer,"Product Management, Finance, Cybersecurity",Finance,Leadership,Assistant Manager,Fredericton,ENTP,5,"upload/image/mentee/ethan-1.jpg"
+
+4. frontend should be bautiful, mobile first, with each files and assets separated
+
+5. frontend should have hidden nav bar with separate login pages for mentee and mentor
+
+6. when a mentor logs in, it should display mentees that have accepted mentor matching
+
+7. when a mentee logs in, and the mentee has previously accepted a matched mentor, it should display the accepted mentors cards sorted by match_score. Each card should have the mentor picture,name,last_work_role,skills, match_score  with chat and video bottons. The page should have an extra button for new match. 
+
+8. when a mentee logs in, and the mentee has not previously accepted a matched mentor, it should display all mentors cards paginated with 10 per page. Each card should have the mentor picture,name,last_work_role,skills, match_score. The top 3 match with match_score > 0 should be highlighted beatifully on page 1. 
+
+9. when a card is clicked, a new page with the details of the mentee or mentor should be displayed.
+
+10. when a mentee accepts a mentor, the mentor should recieve a notification ballon with number of not seen new mentors. When he clicked the notification, the new mentees should be highlighted for the for 1st time only.
