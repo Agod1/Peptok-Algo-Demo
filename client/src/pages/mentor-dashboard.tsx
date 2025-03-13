@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { MentorCard } from "@/components/ui/mentor-card";
+import { MenteeCard } from "@/components/ui/mentee-card";
 import { Match, User } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { useState } from "react";
 
 export default function MentorDashboard() {
   const { data: matches } = useQuery<Match[]>({
-    queryKey: ['/api/matches'],
+    queryKey: ['/api/me/mentees'],
   });
 
   const { data: user } = useQuery<User>({
@@ -38,9 +38,9 @@ export default function MentorDashboard() {
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
           {matches?.map((match) => (
-            <MentorCard
+            <MenteeCard
               key={match.id}
-              mentor={user as User & { matchScore: number }}
+              mentee={match as User & { matchscore: number }}
               showActions
               highlight={!match.seen}
             />

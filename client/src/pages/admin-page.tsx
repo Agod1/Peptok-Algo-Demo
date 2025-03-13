@@ -95,6 +95,7 @@ export default function AdminPage() {
           console.error(`Failed to get matches for ${menteeId} - `, e)
         }
       }
+
       setMatches(matchResults); // Set all fetched matches to state
     };
 
@@ -112,7 +113,7 @@ export default function AdminPage() {
           skills: mentor.skills.split(",").map((s: string) => s.trim()),
           interests: mentor.interests.split(",").map((s: string) => s.trim()),
           industry_specific_needs: mentor.industry_specific_needs.split(",").map((s: string) => s.trim()),
-          max_match: parseInt(mentor.max_match)
+          max_match: mentor.max_match ? parseInt(mentor.max_match) || 3 : 3,
         });
       }
     },
@@ -241,27 +242,26 @@ export default function AdminPage() {
   };
 
   const getMatchesForMentee = async (menteeId: number) => {
-    const userId = encodeURIComponent(menteeId);
-
     try {
-      const response = await fetch(`/api/matches?userId=${userId}`, {
+      const response = await fetch(`/api/matches?userId=${menteeId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       });
-
+  
       if (!response.ok) {
         throw new Error(`Error fetching matches: ${response.statusText}`);
       }
-
+  
       const data = await response.json();
-
-      if (!data.matches || !Array.isArray(data.matches)) {
-        throw new Error('Invalid data format: matches should be an array');
+  
+      // Check if the response is in the expected format
+      if (!Array.isArray(data)) {
+        throw new Error('Invalid data format: expected an array of matches');
       }
-
-      return data.matches;
+  
+      return data; // If the response is already an array, return it directly
     } catch (error) {
       console.error('Error fetching mentee matches:', error);
       throw error;
@@ -269,32 +269,95 @@ export default function AdminPage() {
   };
 
 
-
+  const CreateMatchesButton = ({ mentee }) => {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+  
+    const handleCreateMatches = async () => {
+      setLoading(true);
+      setError(null);
+  
+      // const weights = {
+      //   skills: 0.5,
+      //   experience: 0.3,
+      //   industryNeeds: 0.4,
+      //   mbti: 0.3,
+      //   location: 0.2,
+      // };
+  
+      try {
+        const response = await fetch("/api/matches", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: mentee.id, // mentee's ID
+            weights: weights,   // weights object
+          }),
+        });
+  
+        if (!response.ok) {
+          throw new Error(`Error creating matches: ${response.statusText}`);
+        }
+  
+        const data = await response.json();
+        console.log("Matches created:", data);
+        // Handle successful creation of matches (e.g., update UI or display success message)
+      } catch (error) {
+        setError(error.message);
+        console.error("Error creating matches:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    return (
+      <div className="mt-4 space-y-2">
+        <button
+          onClick={handleCreateMatches}
+          className={`w-auto py-1 px-3 text-sm text-white font-semibold rounded-md shadow-sm focus:outline-none ${
+            loading
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-500 hover:bg-blue-600 focus:ring-2 focus:ring-blue-400"
+          } transition duration-300`}
+          disabled={loading}
+        >
+          {loading ? "Creating Matches..." : "Create New Matches"}
+        </button>
+        {error && <div className="text-red-500 text-xs mt-2">{error}</div>}
+      </div>
+    );
+  };
 
   const renderListBadges = (list?: string[] | string) => {
-    if (!list) {
+    if (!list || (typeof list === "string" && list.trim() === "")) {
       return <div className="flex flex-wrap gap-1 mt-1"></div>;
     }
-
-    // Ensure list is an array
-    if (typeof list === "string") {
-      list = list.split(",").map(item => item.trim()); // Trim spaces
-    }
-
-    if (!Array.isArray(list)) {
-      console.error("Expected an array but got:", list);
+  
+    let items: string[];
+  
+    if (Array.isArray(list)) {
+      items = list.map(item => item.toString().trim()); // Ensure all items are strings
+    } else if (typeof list === "string") {
+      items = list
+        .split(",")
+        .map(item => item.trim())
+        .filter(item => item !== ""); // Remove empty values
+    } else {
+      console.error("Unexpected type:", list);
       return (
         <div className="flex flex-wrap gap-1 mt-1">
           <Badge variant="secondary" className="text-xs">
-            {list}
+            {String(list)}
           </Badge>
         </div>
       );
     }
-
+  
     return (
       <div className="flex flex-wrap gap-1 mt-1">
-        {list.map((item, index) => (
+        {items.map((item, index) => (
           <Badge key={index} variant="secondary" className="text-xs">
             {item}
           </Badge>
@@ -302,6 +365,7 @@ export default function AdminPage() {
       </div>
     );
   };
+  
 
 
   const renderMatchScore = (score: number) => {
@@ -444,22 +508,21 @@ export default function AdminPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <div className="font-medium">{mentee.name}</div>
+                      <div className="text-sm text-muted-foreground">{mentee.last_work_role}</div>
                     </div>
-                    <div className="text-sm text-muted-foreground">{mentee.last_work_role}</div>
-                    <div className="mt-2 space-y-2">
-
+                    <CreateMatchesButton mentee={mentee} />
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Target className="h-4 w-4" />
                       <span>Career Goals:</span>
                     </div>
                     {renderListBadges(mentee.career_goals)}
-
+              
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Book className="h-4 w-4" />
                       <span>Preferred Skills:</span>
                     </div>
                     {renderListBadges(mentee.preferred_skills)}
-
+              
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Building2 className="h-4 w-4" />
                       <span>Years of Experience:</span>
@@ -469,13 +532,13 @@ export default function AdminPage() {
                         {mentee?.experience}
                       </Badge>
                     </div>
-
+              
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Factory className="h-4 w-4" />
                       <span>Industry-Specific Needs:</span>
                     </div>
                     {renderListBadges(mentee.industry_specific_needs)}
-
+              
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="h-4 w-4" />
                       <span>Location:</span>
@@ -485,7 +548,7 @@ export default function AdminPage() {
                         {mentee?.location}
                       </Badge>
                     </div>
-
+              
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <User className="h-4 w-4" />
                       <span>MBTI:</span>
@@ -495,129 +558,128 @@ export default function AdminPage() {
                         {mentee?.mbti}
                       </Badge>
                     </div>
-
+              
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Users className="h-4 w-4" />
                       <span>Ideal Mentor's MBTI:</span>
                     </div>
                     {renderListBadges(MBTI_PAIRINGS[mentee.mbti])}
                   </div>
-
-                  </div>
                 </div>
               ))}
+
             </ScrollArea>
           </CardContent>
         </Card>
 
         <Card>
-  <CardHeader>
-    <CardTitle>Matches</CardTitle>
-    <CardDescription>
-      Top 3 mentor matches for selected mentees
-    </CardDescription>
-  </CardHeader>
-  <CardContent>
-    <ScrollArea className="h-[500px] pr-4">
-      {Array.from(selectedMentees).map(menteeId => {
-        const mentee = mentees.find(m => m.id === menteeId);
-        if (!mentee) return null;
+          <CardHeader>
+            <CardTitle>Matches</CardTitle>
+            <CardDescription>
+              Top 3 mentor matches for selected mentees
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[500px] pr-4">
+              {Array.from(selectedMentees).map(menteeId => {
+                const mentee = mentees.find(m => m.id === menteeId);
+                if (!mentee) return null;
 
-        const menteeMatches = matches[menteeId] || [];
+                const menteeMatches = matches[menteeId] || [];
 
-        // Ensure matches is an array
-        if (!Array.isArray(menteeMatches)) {
-          console.error('Matches is not an array:', menteeMatches);
-          return null;
-        }
+                // Ensure matches is an array
+                if (!Array.isArray(menteeMatches)) {
+                  console.error('Matches is not an array:', menteeMatches);
+                  return null;
+                }
 
-        return (
-          <div key={menteeId} className="mb-6 last:mb-0">
-            <div className="flex items-center gap-2 mb-4">
-              <Briefcase className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-lg">
-                Matches for {mentee.name}
-              </h3>
-              <div className="text-sm text-muted-foreground">{mentee.last_work_role}</div>
-            </div>
-
-            <div className="space-y-4">
-              {menteeMatches
-                .sort((a, b) => b.matchScore - a.matchScore)
-                .slice(0, 3)
-                .map((mentor, index) => (
-                  <div
-                    key={mentor.id}
-                    className="p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <div className="font-medium text-lg">{mentor.name}</div>
-                          <div className="text-sm text-muted-foreground">{mentor.last_work_role}</div>
-                        </div>
-                      </div>
-                      {renderMatchScore(mentor.matchScore)}
+                return (
+                  <div key={menteeId} className="mb-6 last:mb-0">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Briefcase className="h-5 w-5 text-primary" />
+                      <h3 className="font-semibold text-lg">
+                        Matches for {mentee.name}
+                      </h3>
+                      <div className="text-sm text-muted-foreground">{mentee.last_work_role}</div>
                     </div>
 
-                    <Separator className="my-3" />
+                    <div className="space-y-4">
+                      {menteeMatches
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, 3)
+                        .map((mentor, index) => (
+                          <div
+                            key={mentor.id}
+                            className="p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-2">
+                                <div>
+                                  <div className="font-medium text-lg">{mentor.name}</div>
+                                  <div className="text-sm text-muted-foreground">{mentor.last_work_role}</div>
+                                </div>
+                              </div>
+                              {renderMatchScore(mentor.score)}
+                            </div>
 
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                          <Factory className="h-4 w-4" />
-                          <span>Industry Experience:</span>
-                        </div>
-                        {renderListBadges(mentor.industry_specific_needs)}
-                      </div>
+                            <Separator className="my-3" />
 
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Building2 className="h-4 w-4" />
-                        <span>Years of Experience:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        <Badge variant="secondary" className="text-xs">
-                          {mentor?.experience}
-                        </Badge>
-                      </div>
+                            <div className="space-y-3">
+                              <div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                                  <Factory className="h-4 w-4" />
+                                  <span>Industry Experience:</span>
+                                </div>
+                                {renderListBadges(mentor.industry_specific_needs)}
+                              </div>
 
-                      <div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                          <Book className="h-4 w-4" />
-                          <span>Skills:</span>
-                        </div>
-                        {renderListBadges(mentor.skills)}
-                      </div>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Building2 className="h-4 w-4" />
+                                <span>Years of Experience:</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                <Badge variant="secondary" className="text-xs">
+                                  {mentor?.experience}
+                                </Badge>
+                              </div>
 
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <MapPin className="h-4 w-4" />
-                        <span>Location:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        <Badge variant="secondary" className="text-xs">
-                          {mentor?.location}
-                        </Badge>
-                      </div>
+                              <div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                                  <Book className="h-4 w-4" />
+                                  <span>Skills:</span>
+                                </div>
+                                {renderListBadges(mentor.skills)}
+                              </div>
 
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span>MBTI:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        <Badge variant="secondary" className="text-xs">
-                          {mentor?.mbti}
-                        </Badge>
-                      </div>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <MapPin className="h-4 w-4" />
+                                <span>Location:</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                <Badge variant="secondary" className="text-xs">
+                                  {mentor?.location}
+                                </Badge>
+                              </div>
+
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Users className="h-4 w-4" />
+                                <span>MBTI:</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                <Badge variant="secondary" className="text-xs">
+                                  {mentor?.mbti}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                     </div>
                   </div>
-                ))}
-            </div>
-          </div>
-        );
-      })}
-    </ScrollArea>
-  </CardContent>
-</Card>
+                );
+              })}
+            </ScrollArea>
+          </CardContent>
+      </Card>
 
       </div>
     </div>

@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: User) => {
       queryClient.setQueryData(["/api/user"], user);
+      console.log("credentials", 'AuthProvider', user);
     },
     onError: (error: Error) => {
       toast({

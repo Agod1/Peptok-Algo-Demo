@@ -16,15 +16,22 @@ import ProfilePage from "@/pages/profile-page";
 function Router() {
   return (
     <Switch>
-      <ProtectedRoute path="/" component={MenteeDashboard} roles={["mentee"]} />
-      <ProtectedRoute path="/mentor" component={MentorDashboard} roles={["mentor"]} />
-      <ProtectedRoute path="/profile" component={ProfilePage} />
+      {/* Exact route for '/profile' - for user profile */}
+      <ProtectedRoute exact path="/profile" component={ProfilePage} />
+      
+      {/* Route for '/profile/:id' - for specific profile with ID */}
+      <ProtectedRoute path="/profile/:id" component={ProfilePage} />
+
+      <ProtectedRoute exact path="/" component={MenteeDashboard} roles={["mentee"]} />
+      <ProtectedRoute exact path="/mentor" component={MentorDashboard} roles={["mentor"]} />
+      
       <Route path="/auth" component={AuthPage} />
       <Route path="/admin" component={AdminPage} />
       <Route component={NotFound} />
     </Switch>
   );
 }
+
 
 function App() {
   return (

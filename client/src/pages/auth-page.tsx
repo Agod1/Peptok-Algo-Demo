@@ -60,7 +60,7 @@ function LoginForm() {
   const { loginMutation } = useAuth();
   const form = useForm({
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
     },
   });
@@ -70,10 +70,10 @@ function LoginForm() {
       <form onSubmit={form.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">
         <FormField
           control={form.control}
-          name="email"
+          name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>Username</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
@@ -110,7 +110,7 @@ function RegisterForm() {
   const form = useForm({
     resolver: zodResolver(role === 'mentor' ? insertMentorSchema : insertMenteeSchema),
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
       name: "",
       lastWorkRole: "",
@@ -160,10 +160,10 @@ function RegisterForm() {
         <div className="grid gap-4">
           <FormField
             control={form.control}
-            name="email"
+            name="username"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Username</FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
@@ -202,7 +202,7 @@ function RegisterForm() {
             name="lastWorkRole"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Work Role / Last Work Role</FormLabel>
+                <FormLabel>Last Work Role</FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>

@@ -11,8 +11,8 @@ export default function MenteeDashboard() {
   const [, setLocation] = useLocation();
   const itemsPerPage = 10;
 
-  const { data: mentors, isLoading } = useQuery<Array<User & { matchScore: number }>>({
-    queryKey: ['/api/mentors'],
+  const { data: mentors, isLoading } = useQuery<Array<User & { matchscore: number }>>({
+    queryKey: ['/api/me/mentors'],
   });
 
   if (isLoading) {
@@ -23,8 +23,8 @@ export default function MenteeDashboard() {
     );
   }
 
-  const sortedMentors = mentors?.sort((a, b) => b.matchScore - a.matchScore) || [];
-  const topMatches = sortedMentors.filter(m => m.matchScore > 0).slice(0, 3);
+  const sortedMentors = mentors?.sort((a, b) => b.matchscore - a.matchscore) || [];
+  const topMatches = sortedMentors.filter(m => m.matchscore > 0).slice(0, 3);
   const paginatedMentors = sortedMentors.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   return (

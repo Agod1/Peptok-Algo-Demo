@@ -67,77 +67,121 @@ export class DbStorage implements IStorage {
     return res.rows[0];
   }
 
-
-async createMentor(mentor: InsertMentor): Promise<User> {
-  const skills = Array.isArray(mentor.skills) ? mentor.skills   : mentor.skills.split(',').map((s) => s.trim());
-
-  const res = await this.pool.query(
-    `INSERT INTO users 
-      (email, password, role, name, last_work_role, skills, location, mbti, experience, image_url, 
-      max_match, interests, motivation, career_goals, preferred_skills, industry_specific_needs) 
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) 
-    RETURNING *`,
-    [
-      mentor.email,
-      await bcrypt.hash(mentor.password, 10), // Hash password before storing
-      "mentor",
-      mentor.name,
-      mentor.lastWorkRole,
-      skills,
-      mentor.location,
-      mentor.mbti,
-      mentor.experience,
-      mentor.imageUrl,
-      mentor.maxMatch || null, 
-      mentor.interests || [],
-      mentor.motivation || null,
-      null, // Mentees-only fields
-      null,
-      null
-    ]
-  );
-  return res.rows[0];
-}
-
-async createMentee(mentee: InsertMentee): Promise<User> {
-  const preferredSkills = Array.isArray(mentee.preferredSkills) ? mentee.preferredSkills : mentee.preferredSkills.split(',').map((s) => s.trim());
-
-  const res = await this.pool.query(
-    `INSERT INTO users 
-      (email, password, role, name, last_work_role, skills, location, mbti, experience, image_url, 
-      max_match, interests, motivation, career_goals, preferred_skills, industry_specific_needs) 
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) 
-    RETURNING *`,
-    [
-      mentee.email,
-      await bcrypt.hash(mentee.password, 10), // Hash password
-      "mentee",
-      mentee.name,
-      mentee.lastWorkRole,
-      mentee.skills || [],
-      mentee.location,
-      mentee.mbti,
-      mentee.experience,
-      mentee.imageUrl,
-      null, // Mentors-only fields
-      null,
-      null,
-      mentee.careerGoals || null,
-      preferredSkills,
-      mentee.industrySpecificNeeds || null
-    ]
-  );
-  return res.rows[0];
-}
-
-
-  async getMatches(userId: number, role: 'mentor' | 'mentee'): Promise<Match[]> {
+  async createMentor(mentor: InsertMentor): Promise<User> {
+    const skills = Array.isArray(mentor.skills) ? mentor.skills : mentor.skills.split(',').map((s) => s.trim());
+    const interests = Array.isArray(mentor.interests) ? mentor.interests : mentor.interests.split(',').map((s) => s.trim());
+    const industry_specific_needs = Array.isArray(mentor.industry_specific_needs) 
+      ? mentor.industry_specific_needs 
+      : mentor.industry_specific_needs.split(',').map((s) => s.trim());
+  
     const res = await this.pool.query(
-      'SELECT * FROM matches WHERE ' + (role === 'mentor' ? 'mentor_id' : 'mentee_id') + ' = $1',
-      [userId]
+      `INSERT INTO users 
+        (email, password, role, name, last_work_role, skills, location, mbti, experience, image_url, 
+        max_match, interests, motivation, career_goals, preferred_skills, industry_specific_needs) 
+      VALUES ($1, $2, $3, $4, $5, $6::text[], $7, $8, $9, $10, $11, $12::text[], $13, $14, $15, $16::text[]) 
+      RETURNING *`,
+      [
+        mentor.email,
+        mentor.password ? await bcrypt.hash(mentor.password, 10) : await bcrypt.hash('password', 10),
+        "mentor",
+        mentor.name,
+        mentor.lastWorkRole,
+        skills, // Pass directly as an array
+        mentor.location,
+        mentor.mbti,
+        mentor.experience,
+        mentor.imageUrl || null, // Ensure imageUrl doesn't break query
+        mentor.maxMatch !== undefined ? mentor.maxMatch : 3, // Default max_match to 3
+        interests, // Pass directly as an array
+        mentor.motivation || null,
+        null, // Mentees-only fields
+        null,
+        industry_specific_needs // Pass directly as an array
+      ]
     );
-    return res.rows;
+  
+    return res.rows[0];
   }
+  
+  async createMentee(mentee: InsertMentee): Promise<User> {
+    // Validate required fields
+    if (!mentee.email || !mentee.name || !mentee.location || !mentee.mbti || mentee.experience === undefined) {
+      throw new Error('Missing required fields: email, name, location, mbti, experience');
+    }
+  
+    // Ensure all fields are properly defined with default values
+    const career_goals = Array.isArray(mentee.career_goals) ? mentee.career_goals : mentee.career_goals?.split(',').map(s => s.trim()) || [];
+    const preferred_skills = Array.isArray(mentee.preferred_skills) ? mentee.preferred_skills : mentee.preferred_skills?.split(',').map(s => s.trim()) || [];
+    const industry_specific_needs = Array.isArray(mentee.industry_specific_needs) ? mentee.industry_specific_needs : mentee.industry_specific_needs?.split(',').map(s => s.trim()) || [];
+    const interests = Array.isArray(mentee.interests) ? mentee.interests : mentee.interests?.split(',').map(s => s.trim()) || [];
+  
+    const hashedPassword = mentee.password ? await bcrypt.hash(mentee.password, 10) : await bcrypt.hash('password', 10);
+  
+    // Insert mentee into the database
+    const res = await this.pool.query(
+      `INSERT INTO users 
+        (email, password, role, name, last_work_role, skills, location, mbti, experience, image_url, 
+        max_match, interests, motivation, career_goals, preferred_skills, industry_specific_needs) 
+      VALUES ($1, $2, $3, $4, $5, $6::text[], $7, $8, $9, $10, $11, $12::text[], $13, $14::text[], $15::text[], $16::text[]) 
+      RETURNING *`,
+      [
+        mentee.email,
+        hashedPassword,
+        "mentee",
+        mentee.name,
+        mentee.lastWorkRole || null, // Default to null if lastWorkRole is not provided
+        mentee.skills || [], // Ensure skills is an array
+        mentee.location,
+        mentee.mbti,
+        mentee.experience,
+        mentee.imageUrl || null, // Default to null if imageUrl is not provided
+        mentee.maxMatch !== undefined ? mentee.maxMatch : 3, // Default maxMatch to 3
+        interests, // Convert interests to array
+        mentee.motivation || null, // Default to null if motivation is not provided
+        career_goals, // Convert career_goals to array
+        preferred_skills, // Convert preferred_skills to array
+        industry_specific_needs // Convert industry_specific_needs to array
+      ]
+    );
+  
+    return res.rows[0];
+  }
+  
+
+async deleteUsersByRole(role: string): Promise<void> {
+  await this.pool.query(
+    `DELETE FROM users WHERE role = $1`,
+    [role]
+  );
+}
+
+async getMatches(userId: number, role: 'mentor' | 'mentee'): Promise<Match[]> {
+  const matchRoleColumn = role === 'mentor' ? 'mentor_id' : 'mentee_id';
+  const oppositeRoleColumn = role === 'mentor' ? 'mentee_id' : 'mentor_id';
+
+  const res = await this.pool.query(
+    `SELECT 
+      m.*, 
+      u.name, 
+      u.last_work_role, 
+      u.industry_specific_needs, 
+      u.experience, 
+      u.skills, 
+      u.location, 
+      u.mbti 
+    FROM 
+      matches m
+      JOIN users u ON u.id = m.${oppositeRoleColumn}
+    WHERE 
+      m.${matchRoleColumn} = $1`, 
+    [userId]
+  );
+
+  return res.rows.map((match) => ({
+    ...match
+  }));
+}
+
 
   async createMatch(mentorId: number, menteeId: number, score: number): Promise<Match> {
     const res = await this.pool.query(
@@ -147,15 +191,36 @@ async createMentee(mentee: InsertMentee): Promise<User> {
     return res.rows[0];
   }
 
+  async deleteMatchesForUser(userId: number, role: 'mentee' | 'mentor'): Promise<void> {
+    try {
+      // Delete matches based on the user's role
+      const column = role === 'mentee' ? 'mentee_id' : 'mentor_id';
+  
+      const res = await this.pool.query(
+        `DELETE FROM matches WHERE ${column} = $1`,
+        [userId]
+      );
+  
+      console.log(`Deleted ${res.rowCount} matches for user ${userId} as ${role}`);
+    } catch (error) {
+      console.error("Error deleting matches:", error);
+      throw new Error("Failed to delete matches");
+    }
+  }
+  
   async updateMatch(id: number, update: Partial<Match>): Promise<Match> {
-    const fields = Object.keys(update).map((key) => `${key} = $${key}`).join(', ');
+    const keys = Object.keys(update);
+    const fields = keys.map((key, index) => `${key} = $${index + 2}`).join(", "); // Start index at 2 (since $1 is for id)
     const values = Object.values(update);
+  
     const res = await this.pool.query(
       `UPDATE matches SET ${fields} WHERE id = $1 RETURNING *`,
-      [id, ...values]
+      [id, ...values] // id goes first, followed by update values
     );
+  
     return res.rows[0];
   }
+  
 
   async getUserByRole(role: string): Promise<Array<Omit<User, "password">> | undefined> {
     const res = await this.pool.query('SELECT * FROM users WHERE role = $1', [role]);
@@ -171,6 +236,26 @@ async createMentee(mentee: InsertMentee): Promise<User> {
     );
     return res.rows;
   }
+
+  async getScoreMentorsForMentee(menteeId: number): Promise<Array<User & { score: number, matchid: number }>> {
+    const res = await this.pool.query(
+      'SELECT users.*, matches.score AS matchScore, matches.id AS matchid FROM users JOIN matches ON matches.mentee_id = $1 AND users.id = matches.mentor_id',
+      [menteeId]
+    );
+    return res.rows;
+  }
+
+  async getMenteesForMentor(mentorId: number): Promise<Array<User & { score: number, matchid: number }>> {
+    const res = await this.pool.query(
+      `SELECT users.*, matches.score AS matchScore, matches.id AS matchid
+       FROM users
+       JOIN matches ON matches.mentor_id = $1 AND users.id = matches.mentee_id
+       WHERE matches.accepted = TRUE`,  // Ensure only accepted matches are returned
+      [mentorId]
+    );
+    return res.rows;
+  }
+  
 
   async getMessages(userId: number, otherId: number): Promise<Message[]> {
     const res = await this.pool.query(

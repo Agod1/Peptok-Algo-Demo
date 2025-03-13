@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -15,12 +15,12 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   role: text("role").notNull(),
   name: text("name").notNull(),
-  lastWorkRole: text("last_work_role").notNull(),
-  skills: text("skills").array().notNull(),
+  lastWorkRole: text("last_work_role"),
+  skills: text("skills").array(),
   location: text("location").notNull(),
   mbti: text("mbti").notNull(),
   experience: integer("experience").notNull(),
-  imageUrl: text("image_url").notNull(),
+  imageUrl: text("image_url"),
   // Mentor specific fields
   maxMatch: integer("max_match"),
   interests: text("interests").array(),
@@ -28,14 +28,14 @@ export const users = pgTable("users", {
   // Mentee specific fields
   careerGoals: text("career_goals"),
   preferredSkills: text("preferred_skills").array(),
-  industrySpecificNeeds: text("industry_specific_needs"),
+  industrySpecificNeeds: text("industry_specific_needs").array(),
 });
 
 export const matches = pgTable("matches", {
   id: serial("id").primaryKey(),
   mentorId: integer("mentor_id").notNull(),
   menteeId: integer("mentee_id").notNull(),
-  score: integer("score").notNull(),
+  score: numeric("score").notNull(),
   accepted: boolean("accepted").default(false),
   seen: boolean("seen").default(false),
 });
@@ -91,7 +91,7 @@ const baseUserSchema = {
 export const insertMentorSchema = z.object({
   ...baseUserSchema,
   role: z.literal('mentor'),
-  maxMatch: z.literal(3),//.string().or(z.number()).transform(val => Number(val)),
+  maxMatch: z.number().default(3), // Default to 3 if missing //.string().or(z.number()).transform(val => Number(val)),
   // interests: z.string().transform(stringToArray),
   interests: z.array(z.string()).nonempty("Interests cannot be empty"),
   motivation: z.string().min(1, "Motivation is required"),
@@ -101,8 +101,9 @@ export const insertMentorSchema = z.object({
 export const insertMenteeSchema = z.object({
   ...baseUserSchema,
   role: z.literal('mentee'),
+  maxMatch: z.number().default(3), // Default to 3 if missing //.string().or(z.number()).transform(val => Number(val)),
   careerGoals: z.string().min(1, "Career goals are required"),
-  interests: z.array(z.string()).nonempty("Interests cannot be empty"),
+  //interests: z.array(z.string()).nonempty("Interests cannot be empty"),
   preferredSkills: z.string().min(1, "Preferred Skills specific needs are required"),//.transform(stringToArray), // ensure preferredSkills is an array of strings
   industrySpecificNeeds: z.string().min(1, "Industry specific needs are required"),
 });

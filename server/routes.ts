@@ -40,57 +40,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
   setupAuth(app);
 
-  // Get matches for a mentor/mentee
-  app.get("/api/matches", async (req, res) => {
-    try {
-      const userId = parseInt(req.query.userId as string); // Convert to number
-      if (isNaN(userId)) {
-        return res.status(400).json({ error: "Invalid userId" });
-      }
-      const role = "mentee"
-      const matches = await storage.getMatches(userId, role); 
-      
-      // if matches is empty, calculate Match Scores and store and return new matches
-      if (matches.length === 0) {
-        const allMentors = await storage.getUserByRole("mentor");
-        const mentee = await storage.getUser(userId) as Mentee;
-        if (!allMentors || !mentee) {
-          return res.status(404).json({ error: "Mentors or mentee not found" });
-        }
-        const weights: MatchWeights = {
-          skills: 0.5,
-          experience: 0.3,
-          industryNeeds: 0.4,
-          mbti: 0.3,
-          location: 0.2,
-        };
-        const newMatches = allMentors.map((mentor) => {
-          const score = calculateMatchScore(
-            mentor as Mentor,
-            mentee,
-            weights
-          );
-          return { mentorId: mentor.id, menteeId: mentee.id, score };
-        });
-        const createdMatches = await Promise.all(
-          newMatches.map((match) =>
-            storage.createMatch(match.mentorId, match.menteeId, match.score)
-          )
-        );
-        return res.json(createdMatches);
-      }
-
-      res.json(matches);
-    } catch (error) {
-      res.status(401).json({ error: (error as Error).message });
+// Get matches for a mentor/mentee
+app.get("/api/matches", async (req, res) => {
+  try {
+    const userId = parseInt(req.query.userId as string); // Convert to number
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid userId" });
     }
-  });
+    const role = "mentee";
+    const matches = await storage.getMatches(userId, role);
+
+    if (matches.length === 0) {
+      return res.status(404).json({ error: "No matches found" });
+    }
+
+    res.json(matches);
+  } catch (error) {
+    res.status(401).json({ error: (error as Error).message });
+  }
+});
+
+// Create new matches if none exist for a mentor/mentee, with weights from body
+app.post("/api/matches", async (req, res) => {
+  try {
+    const userId = parseInt(req.body.userId as string); // Get userId from the body
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid userId" });
+    }
+
+    const weights: MatchWeights = req.body.weights; // Get weights from the body
+
+    // Ensure weights are valid
+    if (!weights || typeof weights !== "object" || Object.keys(weights).length === 0) {
+      return res.status(400).json({ error: "Invalid weights provided" });
+    }
+
+    const allMentors = await storage.getUserByRole("mentor");
+    const mentee = await storage.getUser(userId) as Mentee;
+
+    if (!allMentors || !mentee) {
+      return res.status(404).json({ error: "Mentors or mentee not found" });
+    }
+    // Delete existing matches for the mentee before creating new ones
+    await storage.deleteMatchesForUser(userId, 'mentee');
+
+    const newMatches = allMentors.map((mentor) => {
+      const score = calculateMatchScore(mentor as Mentor, mentee, weights);
+
+      return { mentorId: mentor.id, menteeId: mentee.id, score };
+    });
+
+    const createdMatches = await Promise.all(
+      newMatches.map((match) =>
+        storage.createMatch(match.mentorId, match.menteeId, match.score)
+      )
+    );
+
+    res.json(createdMatches);
+  } catch (error) {
+    res.status(401).json({ error: (error as Error).message });
+  }
+});
+
 
   const calculateMatchScore = (
     mentor: Mentor,
     mentee: Mentee,
     weights: MatchWeights
   ): number => {
+
+    console.log('mentor', mentor);
+    console.log('mentee', mentee);
     // Skills match percentage
     const skillsMatch = (() => {
       const commonSkills = mentor.skills.filter((skill) =>
@@ -156,12 +176,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.role !== "mentee") {
         return res.status(403).json({ error: "Only mentees can view mentors" });
       }
-      const mentors = await storage.getMentorsForMentee(user.id);
+      const mentors = await storage.getScoreMentorsForMentee(user.id);
       res.json(mentors);
     } catch (error) {
       res.status(401).json({ error: (error as Error).message });
     }
   });
+
+  // Get available mentees for a mentor
+  app.get("/api/me/mentees", async (req, res) => {
+    try {
+      const user = requireAuth(req);  // Ensure the user is authenticated
+
+      if (user.role != "mentor") {  // Check that the user is a mentor
+        return res.status(403).json({ error: "Only mentors can view mentees" });
+      }
+
+      // Fetch the mentees assigned to the mentor
+      const mentees = await storage.getMenteesForMentor(user.id);  // Retrieve mentees from the database or storage
+      res.json(mentees);  // Return the mentees as a response
+    } catch (error) {
+      res.status(401).json({ error: (error as Error).message });
+    }
+  });
+
 
   // Get available mentors for a mentee
   app.get("/api/mentors", async (req, res) => {
@@ -170,6 +208,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(mentors);
     } catch (error) {
       res.status(401).json({ error: (error as Error).message });
+    }
+  });
+
+  // Create mentors
+  app.post("/api/mentors", async (req, res) => {
+    try {
+        const mentorData = req.body;
+        const newMentor = await storage.createMentor(mentorData);
+        res.status(201).json(newMentor);
+    } catch (error) {
+        res.status(400).json({ error: (error as Error).message });
+    }
+  });
+
+  // Delete all mentors
+  app.delete("/api/mentors", async (req, res) => {
+    try {
+        await storage.deleteUsersByRole("mentor");
+        res.json({ message: "All mentors deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
     }
   });
 
@@ -183,10 +242,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Create mentees
+  app.post("/api/mentees", async (req, res) => {
+    try {
+        const menteeData = req.body;
+        const newMentee = await storage.createMentee(menteeData);
+        res.status(201).json(newMentee);
+    } catch (error) {
+        res.status(400).json({ error: (error as Error).message });
+    }
+  });
+
+  // Delete all mentees
+  app.delete("/api/mentees", async (req, res) => {
+    try {
+        await storage.deleteUsersByRole("mentee");
+        res.json({ message: "All mentees deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
   // Accept a match
   app.post("/api/matches/:id/accept", async (req, res) => {
     try {
-      const user = requireAuth(req); // Ensure the user is authenticated
+      // const user = requireAuth(req); // Ensure the user is authenticated
+      // console.log('user', user);  
       const matchId = parseInt(req.params.id);
       if (isNaN(matchId)) {
         return res.status(400).json({ error: "Invalid match ID" });
@@ -201,7 +283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mark match as seen
   app.post("/api/matches/:id/seen", async (req, res) => {
     try {
-      const user = requireAuth(req); // Ensure the user is authenticated
+      //const user = requireAuth(req); // Ensure the user is authenticated
       const matchId = parseInt(req.params.id);
       if (isNaN(matchId)) {
         return res.status(400).json({ error: "Invalid match ID" });

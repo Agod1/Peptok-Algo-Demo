@@ -5,14 +5,14 @@ import { Badge } from "./badge";
 import { Button } from "./button";
 import { MessageSquare, Video } from "lucide-react";
 
-type MentorCardProps = {
-  mentor: User & { matchScore: number };
+type MenteeCardProps = {
+  mentee: User & { matchScore?: number };
   highlight?: boolean;
   onSelect?: () => void;
   showActions?: boolean;
 };
 
-export function MentorCard({ mentor, highlight, onSelect, showActions }: MentorCardProps) {
+export function MenteeCard({ mentee, highlight, onSelect, showActions }: MenteeCardProps) {
   return (
     <Card 
       className={`cursor-pointer transition-all hover:scale-[1.02] ${
@@ -23,23 +23,25 @@ export function MentorCard({ mentor, highlight, onSelect, showActions }: MentorC
       <CardContent className="pt-6">
         <div className="flex items-start gap-4">
           <Avatar className="h-16 w-16">
-            <AvatarImage src={mentor.imageUrl} alt={mentor.name} />
-            <AvatarFallback>{mentor.name[0]}</AvatarFallback>
+            <AvatarImage src={mentee.imageUrl} alt={mentee.name} />
+            <AvatarFallback>{mentee.name[0]}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-lg">{mentor.name}</h3>
-              <Badge variant={highlight ? "default" : "secondary"}>
-                Match: {Math.round(mentor.matchscore * 100)}%
-              </Badge>
+              <h3 className="font-semibold text-lg">{mentee.name}</h3>
+              {mentee.matchscore !== undefined && (
+                <Badge variant={highlight ? "default" : "secondary"}>
+                  Match: {Math.round(mentee.matchscore * 100)}%
+                </Badge>
+              )}
             </div>
-            <p className="text-muted-foreground">{mentor.lastWorkRole}</p>
+            <p className="text-muted-foreground">Interested in: {mentee.interests}</p>
             <div className="mt-2 flex flex-wrap gap-1">
-              {mentor.skills.slice(0, 3).map((skill) => (
+              {mentee.preferred_skills?.slice(0, 3).map((skill) => (
                 <Badge key={skill} variant="outline">{skill}</Badge>
               ))}
-              {mentor.skills.length > 3 && (
-                <Badge variant="outline">+{mentor.skills.length - 3}</Badge>
+              {mentee.preferred_skills?.length > 3 && (
+                <Badge variant="outline">+{mentee.preferred_skills.length - 3}</Badge>
               )}
             </div>
           </div>
