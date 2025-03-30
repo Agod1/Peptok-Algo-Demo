@@ -4,17 +4,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Match } from "@shared/schema";
-import { useParams } from "wouter"; // useParams from wouter
-import { useState } from "react"; // Import useState
+import { useParams } from "wouter";
+import { useState } from "react";
+import { BackButton } from "@/components/ui/back-button";
 
 export default function ProfilePage() {
   const { user } = useAuth();
-  const { id } = useParams<{ id: string }>(); // Capture 'id' from URL
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null); // State for feedback
+  const { id } = useParams<{ id: string }>();
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   const { data: matches, isLoading } = useQuery<Match[]>({
-    queryKey: ['/api/me/mentors'],
-    enabled: !!user, // Ensure query only runs if user is available
+    queryKey: ["/api/me/mentors"],
+    enabled: !!user,
   });
 
   const acceptMatchMutation = useMutation({
@@ -25,24 +26,20 @@ export default function ProfilePage() {
           "Content-Type": "application/json",
         },
       });
-  
+
       if (!response.ok) {
         throw new Error("Failed to accept match");
       }
-  
+
       return response.json();
     },
   });
 
-  // Loading state
   if (isLoading) return <div>Loading...</div>;
 
-  // Determine which profile to display
-  const profile = id
-    ? matches?.find((match) => match.id == id) || null  // Safe check for matches
-    : user;  // Fallback to user profile if no id in URL
+  const profile = id ? matches?.find((match) => match.id == id) || null : user;
 
-  if (!profile) return <div>No profile found</div>; // Return a message if no profile is found
+  if (!profile) return <div>No profile found</div>;
 
   const handleAcceptMatch = () => {
     if (profile && profile.matchid) {
@@ -59,16 +56,18 @@ export default function ProfilePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <BackButton />
+
       <Card>
         <CardHeader>
           <div className="flex items-center gap-4">
             <Avatar className="h-20 w-20">
-              <AvatarImage src={profile.imageUrl || "/default-avatar.png"} alt={profile.name} />
+              <AvatarImage src={profile.image_url || "/default-avatar.png"} alt={profile.name} />
               <AvatarFallback>{profile.name[0]}</AvatarFallback>
             </Avatar>
             <div>
               <CardTitle className="text-2xl">{profile.name}</CardTitle>
-              <p className="text-muted-foreground">{profile.lastWorkRole}</p>
+              <p className="text-muted-foreground">{profile.last_work_role || "No role specified"}</p>
             </div>
           </div>
         </CardHeader>
@@ -77,9 +76,11 @@ export default function ProfilePage() {
             <div>
               <h3 className="font-semibold mb-2">Skills</h3>
               <div className="flex flex-wrap gap-2">
-                {profile.skills?.map((skill) => (
-                  <Badge key={skill} variant="secondary">{skill}</Badge>
-                ))}
+                {profile.skills?.length > 0 ? (
+                  profile.skills.map((skill) => <Badge key={skill} variant="secondary">{skill}</Badge>)
+                ) : (
+                  <p className="text-muted-foreground">No skills listed</p>
+                )}
               </div>
             </div>
 
@@ -88,53 +89,57 @@ export default function ProfilePage() {
               <dl className="grid gap-2">
                 <div className="grid grid-cols-2">
                   <dt className="text-muted-foreground">Location</dt>
-                  <dd>{profile.location}</dd>
+                  <dd>{profile.location || "Not specified"}</dd>
                 </div>
                 <div className="grid grid-cols-2">
                   <dt className="text-muted-foreground">MBTI Type</dt>
-                  <dd>{profile.mbti}</dd>
+                  <dd>{profile.mbti || "Not specified"}</dd>
                 </div>
                 <div className="grid grid-cols-2">
                   <dt className="text-muted-foreground">Experience</dt>
                   <dd>{profile.experience} years</dd>
                 </div>
+                {profile.matchscore && (
+                <div className="grid grid-cols-2">
+                  <dt className="text-muted-foreground">Match Score</dt>
+                  <dd>{`${(profile.matchscore * 100).toFixed(2)}%`}</dd>
+                </div>)}
               </dl>
             </div>
 
-            {profile.role === 'mentor' && (
+            {profile.role === "mentor" && (
               <div>
                 <h3 className="font-semibold mb-2">Mentor Information</h3>
                 <dl className="grid gap-2">
                   <div className="grid grid-cols-2">
                     <dt className="text-muted-foreground">Maximum Mentees</dt>
-                    <dd>{profile.maxMatch}</dd>
+                    <dd>{profile.max_match}</dd>
                   </div>
                   <div>
                     <dt className="text-muted-foreground mb-1">Motivation</dt>
-                    <dd>{profile.motivation}</dd>
+                    <dd>{profile.motivation || "Not specified"}</dd>
                   </div>
                 </dl>
               </div>
             )}
 
-            {profile.role === 'mentee' && (
+            {profile.role === "mentee" && (
               <div>
                 <h3 className="font-semibold mb-2">Mentee Information</h3>
                 <dl className="grid gap-2">
                   <div>
                     <dt className="text-muted-foreground mb-1">Career Goals</dt>
-                    <dd>{profile.careerGoals}</dd>
+                    <dd>{profile.career_goals || "Not specified"}</dd>
                   </div>
                   <div>
                     <dt className="text-muted-foreground mb-1">Industry Needs</dt>
-                    <dd>{profile.industrySpecificNeeds}</dd>
+                    <dd>{profile.industry_specific_needs?.join(", ") || "Not specified"}</dd>
                   </div>
                 </dl>
               </div>
             )}
 
-            {/* Accept Match Button only for mentor role */}
-            {profile.role === 'mentor' && (
+            {user.role === "mentee" && !profile.accepted && profile.role === "mentor" && (
               <div>
                 <button
                   onClick={handleAcceptMatch}

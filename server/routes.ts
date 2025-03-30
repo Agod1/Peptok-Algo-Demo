@@ -211,6 +211,27 @@ app.post("/api/matches", async (req, res) => {
     }
   });
 
+
+  // Get available users
+  app.get("/api/users", async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+
+      // Ensure users is always an array
+      if (!Array.isArray(users)) {
+        console.error("Error: Expected an array but got", users);
+        return res.status(500).json({ error: "Invalid user data format" });
+      }
+
+      console.log("Fetched users:", users);
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+
   // Create mentors
   app.post("/api/mentors", async (req, res) => {
     try {
@@ -303,6 +324,7 @@ app.post("/api/matches", async (req, res) => {
       if (isNaN(otherId)) {
         return res.status(400).json({ error: "Invalid other user ID" });
       }
+      console.log('message', user.id, otherId);
       const messages = await storage.getMessages(user.id, otherId);
       res.json(messages);
     } catch (error) {
@@ -336,6 +358,7 @@ app.post("/api/matches", async (req, res) => {
 
     ws.on("message", async (data) => {
       try {
+        console.log("Received message:", data.toString());
         const message = JSON.parse(data.toString()) as InsertMessage;
         const savedMessage = await storage.createMessage(message);
 

@@ -23,6 +23,7 @@ export function NavMenu() {
       </SheetTrigger>
       <SheetContent>
         <div className="flex flex-col gap-4">
+          {/* User Info */}
           <div className="flex items-center gap-4 pb-4 border-b">
             <User className="h-6 w-6" />
             <div>
@@ -33,6 +34,7 @@ export function NavMenu() {
             </div>
           </div>
 
+          {/* Navigation Links */}
           <div className="space-y-3">
             <Button 
               variant="ghost" 

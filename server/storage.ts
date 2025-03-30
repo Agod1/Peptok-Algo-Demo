@@ -62,6 +62,11 @@ export class DbStorage implements IStorage {
     return res.rows[0];
   }
 
+  async getUsers(): Promise<User[] | undefined> {
+    const res = await this.pool.query('SELECT * FROM users');
+    return res.rows || [];
+  }
+
   async getUserByEmail(email: string): Promise<User | undefined> {
     const res = await this.pool.query('SELECT * FROM users WHERE email = $1', [email]);
     return res.rows[0];
@@ -239,7 +244,7 @@ async getMatches(userId: number, role: 'mentor' | 'mentee'): Promise<Match[]> {
 
   async getScoreMentorsForMentee(menteeId: number): Promise<Array<User & { score: number, matchid: number }>> {
     const res = await this.pool.query(
-      'SELECT users.*, matches.score AS matchScore, matches.id AS matchid FROM users JOIN matches ON matches.mentee_id = $1 AND users.id = matches.mentor_id',
+      'SELECT users.*, matches.score AS matchScore, matches.id AS matchid, matches.accepted FROM users JOIN matches ON matches.mentee_id = $1 AND users.id = matches.mentor_id',
       [menteeId]
     );
     return res.rows;
