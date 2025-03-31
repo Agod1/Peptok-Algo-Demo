@@ -8,17 +8,17 @@ interface UploadAnimationProps {
 
 export function UploadAnimation({ status, progress = 0 }: UploadAnimationProps) {
   return (
-    <div className="relative flex items-center justify-center h-20">
+    <div className="relative flex items-center justify-center h-10">
       {status === "idle" && (
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className="text-muted-foreground"
         >
-          <Upload className="h-10 w-10" />
+          <Upload className="h-8 w-8" />
         </motion.div>
       )}
-      
+
       {status === "uploading" && (
         <div className="relative">
           <motion.div
@@ -60,24 +60,24 @@ export function UploadAnimation({ status, progress = 0 }: UploadAnimationProps) 
           </motion.div>
         </div>
       )}
-      
+
       {status === "success" && (
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className="text-green-500"
         >
-          <CheckCircle className="h-10 w-10" />
+          <CheckCircle className="h-8 w-8" />
         </motion.div>
       )}
-      
+
       {status === "error" && (
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className="text-destructive"
         >
-          <XCircle className="h-10 w-10" />
+          <XCircle className="h-8 w-8" />
         </motion.div>
       )}
     </div>

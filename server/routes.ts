@@ -212,6 +212,7 @@ app.post("/api/matches", async (req, res) => {
   });
 
 
+
   // Get available users
   app.get("/api/users", async (req, res) => {
     try {
@@ -223,10 +224,27 @@ app.post("/api/matches", async (req, res) => {
         return res.status(500).json({ error: "Invalid user data format" });
       }
 
-      console.log("Fetched users:", users);
       res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // Get a user by ID
+  app.get("/api/users/:id", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid user ID" });
+      }
+
+      const user = await storage.getUser(userId);
+
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
       res.status(500).json({ error: (error as Error).message });
     }
   });

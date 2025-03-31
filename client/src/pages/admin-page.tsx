@@ -16,6 +16,7 @@ import type { Mentor, Mentee, MatchWeights, Match } from "@shared/schema";
 // import { findBestMatches } from "@/lib/matching";
 import { UploadAnimation } from "@/components/ui/upload-animation";
 import { MBTI_PAIRINGS } from "../lib/config";
+import MatchScore from "@/components/ui/match-score";
 
 const REQUIRED_MENTOR_FIELDS = ['last_work_role', 'skills', 'experience', 'industry_specific_needs'];
 const REQUIRED_MENTEE_FIELDS = ['last_work_role', 'career_goals', 'preferred_skills', 'experience', 'industry_specific_needs'];
@@ -276,14 +277,7 @@ export default function AdminPage() {
     const handleCreateMatches = async () => {
       setLoading(true);
       setError(null);
-  
-      // const weights = {
-      //   skills: 0.5,
-      //   experience: 0.3,
-      //   industryNeeds: 0.4,
-      //   mbti: 0.3,
-      //   location: 0.2,
-      // };
+
   
       try {
         const response = await fetch("/api/matches", {
@@ -365,48 +359,12 @@ export default function AdminPage() {
       </div>
     );
   };
-  
-
-
-  const renderMatchScore = (score: number) => {
-    const percentage = Math.round((score || 0) * 100);
-
-    const getColor = (type: "bg" | "text") => {
-      if (percentage >= 90) return type === "bg" ? "bg-green-600" : "text-green-600";
-      if (percentage >= 80) return type === "bg" ? "bg-green-500" : "text-green-500";
-      if (percentage >= 70) return type === "bg" ? "bg-green-400" : "text-green-400";
-      if (percentage >= 60) return type === "bg" ? "bg-yellow-600" : "text-yellow-600";
-      if (percentage >= 50) return type === "bg" ? "bg-yellow-400" : "text-yellow-400";
-      if (percentage >= 40) return type === "bg" ? "bg-orange-500" : "text-orange-500";
-      if (percentage >= 30) return type === "bg" ? "bg-orange-400" : "text-orange-400";
-      return type === "bg" ? "bg-red-600" : "text-red-600";
-    };
-
-
-
-    return (
-      <div className="flex items-center gap-3">
-        {/* Bigger & Bolder Score Text */}
-        <div className="text-lg font-bold">
-          <span className={`${getColor("text")}`}>{percentage}%</span>{" "}
-          <span className="text-gray-700">Match</span>
-        </div>
-
-        {/* Enlarged Progress Bar */}
-        <div className="h-4 w-32 bg-gray-200 rounded-full overflow-hidden shadow-md">
-          <div
-            className={`h-full transition-all duration-500 ${getColor("bg")}`}
-            style={{ width: `${percentage}%` }}
-          />
-        </div>
-      </div>
-    );
-  };
 
 
   return (
     <div className="container mx-auto py-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -417,24 +375,26 @@ export default function AdminPage() {
           <CardContent className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">Mentors CSV</label>
-              <div className="space-y-2">
+              <div className="flex items-center gap-2">
                 <Input
                   type="file"
                   accept=".csv"
                   disabled={uploadMentors.isPending}
                   onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], "mentors")}
+                  className="flex-1" // Ensures input takes up available space
                 />
                 <UploadAnimation status={mentorUploadStatus} progress={0.5} />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Mentees CSV</label>
-              <div className="space-y-2">
+              <div className="flex items-center gap-2">
                 <Input
                   type="file"
                   accept=".csv"
                   disabled={uploadMentees.isPending}
                   onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], "mentees")}
+                  className="flex-1" // Ensures input takes up available space
                 />
                 <UploadAnimation status={menteeUploadStatus} progress={0.5} />
               </div>
@@ -452,27 +412,31 @@ export default function AdminPage() {
             <CardTitle>Match Weights</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {Object.entries(weights).map(([key, value]) => (
-              <div key={key} className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="block text-sm font-medium capitalize">
-                    {key.replace(/([A-Z])/g, " $1")}
-                  </label>
-                  <span className="text-sm font-medium text-muted-foreground">
-                    {(value * 10).toFixed(0)}
-                  </span>
+
+            {Object.entries(weights).map(([key, value]) => {
+              const formattedKey = key.toUpperCase() === "MBTI" ? key.toUpperCase() : key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase());
+              return (
+                <div key={key} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-sm font-medium">
+                      {formattedKey}
+                    </label>
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {(value * 10).toFixed(0)}
+                    </span>
+                  </div>
+                  <Slider
+                    value={[value]}
+                    min={0}
+                    max={0.5}
+                    step={0.1}
+                    onValueChange={([newValue]) =>
+                      setWeights(w => ({ ...w, [key]: newValue }))
+                    }
+                  />
                 </div>
-                <Slider
-                  value={[value]}
-                  min={0}
-                  max={.5}
-                  step={0.1}
-                  onValueChange={([newValue]) =>
-                    setWeights(w => ({ ...w, [key]: newValue }))
-                  }
-                />
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 
@@ -619,7 +583,7 @@ export default function AdminPage() {
                                   <div className="text-sm text-muted-foreground">{mentor.last_work_role}</div>
                                 </div>
                               </div>
-                              {renderMatchScore(mentor.score)}
+                              <MatchScore score={mentor.score} />
                             </div>
 
                             <Separator className="my-3" />
@@ -679,7 +643,7 @@ export default function AdminPage() {
               })}
             </ScrollArea>
           </CardContent>
-      </Card>
+        </Card>
 
       </div>
     </div>

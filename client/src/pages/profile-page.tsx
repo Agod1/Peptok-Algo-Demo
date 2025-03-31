@@ -46,6 +46,7 @@ export default function ProfilePage() {
       acceptMatchMutation.mutate(profile.matchid, {
         onSuccess: () => {
           setFeedbackMessage("Match accepted successfully!");
+          window.location.reload();
         },
         onError: (error: any) => {
           setFeedbackMessage(`Error: ${error.message}`);
@@ -139,19 +140,26 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {user.role === "mentee" && !profile.accepted && profile.role === "mentor" && (
+            {user.role === "mentee" && profile.role === "mentor" && (
               <div>
-                <button
-                  onClick={handleAcceptMatch}
-                  className="mt-4 p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none"
-                >
-                  Accept Match
-                </button>
-                {feedbackMessage && (
-                  <p className="mt-4 text-sm text-green-600">{feedbackMessage}</p>
+                {profile.accepted ? (
+                  <p className="mt-4 text-sm text-green-600">Match accepted</p>
+                ) : (
+                  <div>
+                    <button
+                      onClick={handleAcceptMatch}
+                      className="mt-4 p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none"
+                    >
+                      Accept Match
+                    </button>
+                    {feedbackMessage && (
+                      <p className="mt-4 text-sm text-green-600">{feedbackMessage}</p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
+
           </div>
         </CardContent>
       </Card>

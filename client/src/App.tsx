@@ -13,6 +13,7 @@ import MenteeDashboard from "@/pages/mentee-dashboard";
 import MentorDashboard from "@/pages/mentor-dashboard";
 import ProfilePage from "@/pages/profile-page";
 import LiveChatPage from "@/pages/message-page";
+import ChatPage from "@/pages/chat-page";
 
 function Router() {
   return (
@@ -26,6 +27,7 @@ function Router() {
       <ProtectedRoute exact path="/" component={MenteeDashboard} roles={["mentee"]} />
       <ProtectedRoute exact path="/mentor" component={MentorDashboard} roles={["mentor"]} />
 
+      <ProtectedRoute exact path="/chat/:id/:msg?" component={ChatPage} />
       <ProtectedRoute exact path="/message" component={LiveChatPage} />
 
       <Route path="/auth" component={AuthPage} />

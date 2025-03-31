@@ -1,21 +1,45 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MenteeCard } from "@/components/ui/mentee-card";
 import { Match, User } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Bell } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function MentorDashboard() {
-  const { data: matches } = useQuery<Match[]>({
-    queryKey: ['/api/me/mentees'],
-  });
+  const queryClient = useQueryClient();
+  const { data: matches } = useQuery<Match[]>({ queryKey: ["/api/me/mentees"] });
+  const { data: user } = useQuery<User>({ queryKey: ["/api/user"] });
+  const unseenCount = matches?.filter((m) => !m.seen).length || 0;
 
-  const { data: user } = useQuery<User>({
-    queryKey: ['/api/user'],
-  });
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
-  const unseenCount = matches?.filter(m => !m.seen).length || 0;
+    socket.onmessage = (event) => {
+      const newMatch = JSON.parse(event.data);
+      queryClient.setQueryData(["/api/me/mentees"], (oldMatches: Match[] = []) => [
+        newMatch,
+        ...oldMatches,
+      ]);
+    };
+
+    socket.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [queryClient]);
+
+  // Fallback: Polling every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries(["/api/me/mentees"]);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [queryClient]);
 
   return (
     <div className="container mx-auto px-4 py-8">
