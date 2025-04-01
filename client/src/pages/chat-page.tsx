@@ -9,14 +9,18 @@ import { MessageSquare } from "lucide-react";
 import { BackButton } from "@/components/ui/back-button";
 
 type Buddy = {
+  id: string;
   name: string;
   imageUrl: string;
   role: string;
+  matchId: string;
 };
 
+const MAX_RECONNECT_ATTEMPTS = 5;
+
 async function fetchBuddy(id: string): Promise<Buddy> {
-  const res = await fetch(`/api/users/${id}`);
-  if (!res.ok) throw new Error("Failed to fetch user");
+  const res = await fetch(`/api/chat/buddies/${id}`);
+  if (!res.ok) throw new Error("Failed to fetch buddy");
   return res.json();
 }
 
@@ -24,53 +28,88 @@ export default function ChatPage() {
   const { user } = useAuth();
   const { id, msg } = useParams<{ id: string; msg?: string }>();
   const socketRef = useRef<WebSocket | null>(null);
+  const reconnectAttempts = useRef(0);
 
   const { data: buddy } = useQuery<Buddy>({
-    queryKey: ["/api/users", id],
+    queryKey: ["/api/chat/buddies", id],
     queryFn: () => fetchBuddy(id),
     enabled: !!id,
   });
 
   const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
-  const [newMessage, setNewMessage] = useState<string>(msg || ""); // Initialize with msg if present
+  const [newMessage, setNewMessage] = useState<string>(msg || "");
 
   useEffect(() => {
-    if (msg) {
-      setNewMessage(msg); // Ensure newMessage updates if msg is present in the URL
-    }
+    if (msg) setNewMessage(msg);
   }, [msg]);
-  
+
   useEffect(() => {
-    if (!id) return;
+    console.log("ChatPage useEffect", { buddy, user });
+    if (!buddy?.matchId || !user?.id) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const socketUrl = `${protocol}//${window.location.host}/ws/chat/${id}`;
-    const socket = new WebSocket(socketUrl);
+    const socketUrl = `${protocol}//${window.location.host}/ws/chat?userId=${user.id}&matchId=${buddy.matchId}`;
 
-    socketRef.current = socket;
+    // Prevent duplicate WebSocket connections
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      return;
+    }
 
-    socket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      setMessages((prevMessages) => [...prevMessages, message]);
+    const connectWebSocket = () => {
+      const socket = new WebSocket(socketUrl);
+      console.log("Connecting WebSocket:", { socketUrl });
+
+      socketRef.current = socket;
+
+      socket.onopen = () => {
+        console.log("WebSocket connected successfully");
+        reconnectAttempts.current = 0; // Reset reconnect attempts
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          setMessages((prevMessages) => [...prevMessages, message]);
+        } catch (error) {
+          console.error("Error parsing WebSocket message:", error);
+        }
+      };
+
+      socket.onerror = (error) => {
+        console.error("WebSocket Error:", error);
+      };
+
+      socket.onclose = (event) => {
+        console.log("WebSocket closed", event.reason);
+
+        if (!event.wasClean && reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+          const retryDelay = Math.min(1000 * 2 ** reconnectAttempts.current, 30000); // Exponential backoff
+          reconnectAttempts.current += 1;
+          setTimeout(connectWebSocket, retryDelay);
+        }
+      };
     };
 
-    socket.onerror = (error) => {
-      console.error("WebSocket Error:", error);
-    };
-
-    socket.onclose = () => {
-      console.log("WebSocket connection closed");
-    };
+    connectWebSocket();
 
     return () => {
-      socket.close();
-      socketRef.current = null;
+      if (socketRef.current) {
+        socketRef.current.close(1000, "Component unmounted");
+        socketRef.current = null;
+      }
     };
-  }, [id]);
+  }, [buddy?.matchId]);
 
   const handleSendMessage = () => {
-    if (newMessage.trim() && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      const message = { sender: user.name, text: newMessage };
+    console.log({
+      task: "handleSendMessage called",
+      newMessage,
+      buddy,
+      readyState: socketRef.current?.readyState,
+    });
+
+    if (newMessage.trim() && buddy && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      const message = { type: "chat", chatRoom: buddy.matchId, sender: user.name, text: newMessage };
       socketRef.current.send(JSON.stringify(message));
       setMessages((prevMessages) => [...prevMessages, message]);
       setNewMessage("");

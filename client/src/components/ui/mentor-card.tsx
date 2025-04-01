@@ -45,10 +45,10 @@ export function MentorCard({ mentor, highlight, onSelect, showActions }: MentorC
             <p className="text-muted-foreground">{mentor.experience} years of experience in {mentor.industry_specific_needs}</p>
             <div className="mt-2 flex flex-wrap gap-1">
               {mentor.skills.slice(0, 3).map((skill) => (
-                <Badge key={skill} variant="outline">{skill}</Badge>
+                <Badge className="bg-gray-100" key={skill} variant="outline">{skill}</Badge>
               ))}
               {mentor.skills.length > 3 && (
-                <Badge variant="outline">+{mentor.skills.length - 3}</Badge>
+                <Badge className="bg-gray-100" variant="outline">+{mentor.skills.length - 3}</Badge>
               )}
             </div>
           </div>

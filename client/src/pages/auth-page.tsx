@@ -24,7 +24,7 @@ export default function AuthPage() {
       <div className="w-full max-w-5xl grid md:grid-cols-2 gap-8 items-center">
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>Welcome to Mentorship Platform</CardTitle>
+            <CardTitle className="text-center">Welcome to Peptok</CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="login">
@@ -45,7 +45,7 @@ export default function AuthPage() {
         </Card>
 
         <div className="hidden md:block text-center">
-          <h1 className="text-4xl font-bold mb-4">Find Your Perfect Mentor</h1>
+          <h1 className="text-4xl font-bold mb-4">The platform for the experience that matters!</h1>
           <p className="text-muted-foreground">
             Connect with experienced professionals who can guide you on your career journey.
             Our intelligent matching system ensures the best mentor-mentee fit.

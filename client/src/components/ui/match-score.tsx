@@ -21,9 +21,9 @@ const MatchScore: React.FC<MatchScoreProps> = ({ score }) => {
   return (
     <div className="flex items-center gap-3">
       {/* Show text separately on larger screens */}
-      <div className="hidden sm:block text-lg font-bold">
+      <div className="hidden sm:block text-md font-semibold">
         {/* <span className={`${getColor("text")}`}>{percentage}%</span>{" "} */}
-        <span className="text-gray-00">Match</span>
+        <span className="text-gray-500">Match</span>
       </div>
 
       {/* Progress Bar with text inside for small screens */}

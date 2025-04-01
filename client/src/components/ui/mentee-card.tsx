@@ -42,10 +42,10 @@ export function MenteeCard({ mentee, highlight, onSelect, showActions }: MenteeC
           <p className="text-muted-foreground">Interested in {mentee.interests}</p>
           <div className="mt-2 flex flex-wrap gap-1">
             {mentee.preferred_skills?.slice(0, 3).map((skill) => (
-              <Badge key={skill} variant="outline">{skill}</Badge>
+              <Badge className="bg-gray-100" key={skill} variant="outline">{skill}</Badge>
             ))}
             {mentee.preferred_skills?.length > 3 && (
-              <Badge variant="outline">+{mentee.preferred_skills.length - 3}</Badge>
+              <Badge className="bg-gray-100" variant="outline">+{mentee.preferred_skills.length - 3}</Badge>
             )}
           </div>
           </div>

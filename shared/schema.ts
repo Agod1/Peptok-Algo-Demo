@@ -115,29 +115,20 @@ export const insertMessageSchema = z.object({
 });
 
 export const mentorSchema = createInsertSchema(users)
-  .omit({ id: true, careerGoals: true, preferredSkills: true, industrySpecificNeeds: true })
-  .extend({
-    maxMatch: z.number().int().min(1, "Max match must be at least 1").optional(),
-    skills: z.array(z.string()).nonempty("Skills cannot be empty"),
-    motivation: z.string().min(1, "Motivation is required"),
-  });
+.omit({ id: true, careerGoals: true, preferredSkills: true, industrySpecificNeeds: true })
+.extend({
+  maxMatch: z.number().int().min(1, "Max match must be at least 1").optional(),
+  skills: z.array(z.string()).nonempty("Skills cannot be empty"),
+  motivation: z.string().min(1, "Motivation is required"),
+});
 
 export const menteeSchema = createInsertSchema(users)
-  .omit({ id: true, maxMatch: true, skills: true, motivation: true })
-  .extend({
-    careerGoals: z.string().min(1, "Career goals are required"),
-    preferredSkills: z.array(z.string()).nonempty("Preferred skills cannot be empty"),
-    industrySpecificNeeds: z.string().optional(),
-  });
-
-export type Mentor = z.infer<typeof mentorSchema>;
-export type Mentee = z.infer<typeof menteeSchema>;
-export type InsertMentor = z.infer<typeof insertMentorSchema>;
-export type InsertMentee = z.infer<typeof insertMenteeSchema>;
-export type User = typeof users.$inferSelect;
-export type Match = typeof matches.$inferSelect;
-export type InsertMessage = z.infer<typeof insertMessageSchema>;
-export type Message = typeof messages.$inferSelect;
+.omit({ id: true, maxMatch: true, skills: true, motivation: true })
+.extend({
+  careerGoals: z.string().min(1, "Career goals are required"),
+  preferredSkills: z.array(z.string()).nonempty("Preferred skills cannot be empty"),
+  industrySpecificNeeds: z.string().optional(),
+});
 
 export const matchWeightSchema = z.object({
   skills: z.number().min(0).max(1),
@@ -147,4 +138,21 @@ export const matchWeightSchema = z.object({
   mbti: z.number().min(0).max(1),
 });
 
+export const buddySchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, "Name is required"),
+  imageUrl: z.string().url("Invalid image URL"),
+  role: z.enum(["mentor", "mentee"]),
+  matchId: z.string().optional(),
+});
+
+export type Mentor = z.infer<typeof mentorSchema>;
+export type Mentee = z.infer<typeof menteeSchema>;
+export type InsertMentor = z.infer<typeof insertMentorSchema>;
+export type InsertMentee = z.infer<typeof insertMenteeSchema>;
+export type User = typeof users.$inferSelect;
+export type Match = typeof matches.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Message = typeof messages.$inferSelect;
 export type MatchWeights = z.infer<typeof matchWeightSchema>;
+export type Buddy = z.infer<typeof buddySchema>;

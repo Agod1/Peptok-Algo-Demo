@@ -16,6 +16,7 @@ import { MBTI_PAIRINGS } from "../client/src/lib/config"; // Make sure this path
 declare module "express-session" {
   interface SessionData {
     userId?: number;
+    matchId?: number;
   }
 }
 
@@ -27,7 +28,8 @@ function requireAuth(req: Request) {
 }
 
 // Store connected clients
-const clients = new Map<number, WebSocket>();
+const clients = new Map<string, WebSocket>(); // Maps userId -> WebSocket
+const chatRooms = new Map<string, Set<WebSocket>>(); // Maps matchId -> Set of WebSockets
 
 function broadcastToUser(userId: number, message: any) {
   const client = clients.get(userId);
@@ -40,67 +42,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
   setupAuth(app);
 
-// Get matches for a mentor/mentee
-app.get("/api/matches", async (req, res) => {
-  try {
-    const userId = parseInt(req.query.userId as string); // Convert to number
-    if (isNaN(userId)) {
-      return res.status(400).json({ error: "Invalid userId" });
+  // Get matches for a mentor/mentee
+  app.get("/api/matches", async (req, res) => {
+    try {
+      const userId = parseInt(req.query.userId as string); // Convert to number
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+      const role = "mentee";
+      const matches = await storage.getMatches(userId, role);
+
+      if (matches.length === 0) {
+        return res.status(404).json({ error: "No matches found" });
+      }
+
+      res.json(matches);
+    } catch (error) {
+      res.status(401).json({ error: (error as Error).message });
     }
-    const role = "mentee";
-    const matches = await storage.getMatches(userId, role);
+  });
 
-    if (matches.length === 0) {
-      return res.status(404).json({ error: "No matches found" });
+  // Create new matches if none exist for a mentor/mentee, with weights from body
+  app.post("/api/matches", async (req, res) => {
+    try {
+      const userId = parseInt(req.body.userId as string); // Get userId from the body
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+      }
+
+      const weights: MatchWeights = req.body.weights; // Get weights from the body
+
+      // Ensure weights are valid
+      if (!weights || typeof weights !== "object" || Object.keys(weights).length === 0) {
+        return res.status(400).json({ error: "Invalid weights provided" });
+      }
+
+      const allMentors = await storage.getUserByRole("mentor");
+      const mentee = await storage.getUser(userId) as Mentee;
+
+      if (!allMentors || !mentee) {
+        return res.status(404).json({ error: "Mentors or mentee not found" });
+      }
+      // Delete existing matches for the mentee before creating new ones
+      await storage.deleteMatchesForUser(userId, 'mentee');
+
+      const newMatches = allMentors.map((mentor) => {
+        const score = calculateMatchScore(mentor as Mentor, mentee, weights);
+
+        return { mentorId: mentor.id, menteeId: mentee.id, score };
+      });
+
+      const createdMatches = await Promise.all(
+        newMatches.map((match) =>
+          storage.createMatch(match.mentorId, match.menteeId, match.score)
+        )
+      );
+
+      res.json(createdMatches);
+    } catch (error) {
+      res.status(401).json({ error: (error as Error).message });
     }
-
-    res.json(matches);
-  } catch (error) {
-    res.status(401).json({ error: (error as Error).message });
-  }
-});
-
-// Create new matches if none exist for a mentor/mentee, with weights from body
-app.post("/api/matches", async (req, res) => {
-  try {
-    const userId = parseInt(req.body.userId as string); // Get userId from the body
-    if (isNaN(userId)) {
-      return res.status(400).json({ error: "Invalid userId" });
-    }
-
-    const weights: MatchWeights = req.body.weights; // Get weights from the body
-
-    // Ensure weights are valid
-    if (!weights || typeof weights !== "object" || Object.keys(weights).length === 0) {
-      return res.status(400).json({ error: "Invalid weights provided" });
-    }
-
-    const allMentors = await storage.getUserByRole("mentor");
-    const mentee = await storage.getUser(userId) as Mentee;
-
-    if (!allMentors || !mentee) {
-      return res.status(404).json({ error: "Mentors or mentee not found" });
-    }
-    // Delete existing matches for the mentee before creating new ones
-    await storage.deleteMatchesForUser(userId, 'mentee');
-
-    const newMatches = allMentors.map((mentor) => {
-      const score = calculateMatchScore(mentor as Mentor, mentee, weights);
-
-      return { mentorId: mentor.id, menteeId: mentee.id, score };
-    });
-
-    const createdMatches = await Promise.all(
-      newMatches.map((match) =>
-        storage.createMatch(match.mentorId, match.menteeId, match.score)
-      )
-    );
-
-    res.json(createdMatches);
-  } catch (error) {
-    res.status(401).json({ error: (error as Error).message });
-  }
-});
+  });
 
 
   const calculateMatchScore = (
@@ -303,6 +305,62 @@ app.post("/api/matches", async (req, res) => {
     }
   });
 
+  // Fetch chat history
+  app.get("/api/chat/:buddyId", async (req, res) => {
+    const user = requireAuth(req);
+    const userId = user.id;
+    const buddyId = req.params.buddyId;
+    
+    try {
+        const chats = await storage.getChatsByMatch(userId, buddyId);
+        res.json(chats);
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+  });
+  
+  // Get chat buddy by buddyId
+  app.get("/api/chat/buddies/:buddyId", async (req, res) => {
+    const user = requireAuth(req);
+    const userId = user.id;
+    const buddyId = req.params.buddyId;
+
+    try {
+      const buddy = await storage.getChatsBuddy(userId, buddyId, user.role);
+      console.log('buddy', buddy);
+      if (buddy) {
+        req.session.userId = user.id;
+        req.session.matchId = buddy.id;
+
+        // connect to the chat room
+        if (!chatRooms.has(buddy.id)) {
+          chatRooms.set(buddy.id, new Set());
+        }
+        console.log('chatRooms', chatRooms);
+      }
+      res.json(buddy);
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+  
+  // Store message when WebSockets aren't available
+  app.post("/api/chat/:buddyId", async (req, res) => {
+    const { text } = req.body;
+    const user = requireAuth(req);
+    const userId = user.id;
+    const buddyId = req.params.buddyId;
+
+    try {
+      const chats = await storage.storeChatsByMatch(userId, buddyId);
+      res.json(chats);
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+    const newMessage = await Message.create({ sender: userId, receiver: buddyId, text });
+    res.status(201).json(newMessage);
+  });
+
   // Accept a match
   app.post("/api/matches/:id/accept", async (req, res) => {
     try {
@@ -367,6 +425,12 @@ app.post("/api/matches", async (req, res) => {
 
   wss.on("connection", (ws, req) => {
     const userId = req.session?.userId;
+    const matchId = req.session?.matchId;
+    const user = req.user as User;
+    const session = req.session;
+
+    console.log("WebSocket connected:", {userId, matchId, url: req.url, user, session});
+
     if (!userId) {
       ws.close();
       return;
@@ -374,33 +438,48 @@ app.post("/api/matches", async (req, res) => {
 
     clients.set(userId, ws);
 
+    if (matchId) {
+      chatRooms.set(matchId, chatRooms.get(matchId) || new Set());
+      chatRooms.get(matchId).add(ws);
+    }
+
     ws.on("message", async (data) => {
       try {
         console.log("Received message:", data.toString());
-        const message = JSON.parse(data.toString()) as InsertMessage;
-        const savedMessage = await storage.createMessage(message);
-
-        // Send to both sender and receiver
-        broadcastToUser(message.senderId, {
-          type: "message",
-          message: savedMessage,
-        });
-        broadcastToUser(message.receiverId, {
-          type: "message",
-          message: savedMessage,
-        });
+        const message = JSON.parse(data.toString());
+    
+        if (message.action === "isOpened") {
+          console.log(`User ${userId} opened content/chat.`);
+          return;
+        }
+    
+        const savedMessage = await storage.createMessage({ ...message, type: "chat" });
+    
+        if (message.matchId && chatRooms.has(message.matchId)) {
+          chatRooms.get(message.matchId).forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({ type: "message", message: savedMessage }));
+            }
+          });
+        } else {
+          broadcastToUser(message.senderId, { type: "message", message: savedMessage });
+          broadcastToUser(message.receiverId, { type: "message", message: savedMessage });
+        }
       } catch (error) {
-        ws.send(
-          JSON.stringify({
-            type: "error",
-            error: (error as Error).message,
-          })
-        );
+        ws.send(JSON.stringify({ type: "error", error: error.message }));
       }
     });
+    
 
     ws.on("close", () => {
       clients.delete(userId);
+      if (matchId && chatRooms.has(matchId)) {
+        chatRooms.get(matchId).delete(ws);
+        if (chatRooms.get(matchId).size === 0) {
+          chatRooms.delete(matchId);
+        }
+      }
+      console.log("Disconnected:", userId);
     });
   });
 

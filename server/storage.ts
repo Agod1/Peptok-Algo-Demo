@@ -1,4 +1,4 @@
-import { User, Match, Message, type Mentor, type InsertMentor, type Mentee, InsertMentee, InsertMessage } from "@shared/schema";
+import { User, Match, Message, Buddy,  type Mentor, type InsertMentor, type Mentee, InsertMentee, InsertMessage } from "@shared/schema";
 import pg from 'pg'; 
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -233,6 +233,43 @@ async getMatches(userId: number, role: 'mentor' | 'mentee'): Promise<Match[]> {
     return res.rows.map(({ password, ...user }) => user); // Remove password from each user object
   }
   
+  async getChatsBuddy(userId: number, buddyId: number, role: string): Promise<Buddy | null> {
+    let query = '';
+    let params = [];
+    
+    if (role === 'mentee') {
+      query = `
+        SELECT users.id, users.name, users.image_url, matches.id AS matchId 
+        FROM users 
+        JOIN matches ON users.id = matches.mentor_id 
+        WHERE matches.mentee_id = $1 AND users.id = $2
+      `;
+      params = [userId, buddyId];
+    } else if (role === 'mentor') {
+      query = `
+        SELECT users.id, users.name, users.image_url, matches.id AS matchId 
+        FROM users 
+        JOIN matches ON users.id = matches.mentee_id 
+        WHERE matches.mentor_id = $1 AND users.id = $2
+      `;
+      params = [userId, buddyId];
+    } else {
+      throw new Error('Invalid role');
+    }
+    
+    const res = await this.pool.query(query, params);
+    if (res.rows.length === 0) return null;
+    
+    const buddy = res.rows[0];
+    return {
+      id: buddy.id,
+      name: buddy.name,
+      imageUrl: buddy.image_url,
+      role: role === 'mentee' ? 'mentor' : 'mentee',
+      matchId: buddy.matchid
+    };
+  }
+
 
   async getMentorsForMentee(menteeId: number): Promise<Array<User & { matchScore: number }>> {
     const res = await this.pool.query(
