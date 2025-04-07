@@ -48,7 +48,7 @@ export default function MessagePage() {
               users.map((user) => (
                 <li key={user.id} className="flex items-center space-x-2">
                   <img
-                    src={user.image || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.id}`}
+                    src={user.image_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.id}`}
                     alt={user.name}
                     className="w-8 h-8 rounded-full"
                   />

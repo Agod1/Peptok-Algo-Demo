@@ -19,20 +19,19 @@ const MatchScore: React.FC<MatchScoreProps> = ({ score }) => {
   };
 
   return (
-    <div className="flex items-center gap-3">
-      {/* Show text separately on larger screens */}
-      <div className="hidden sm:block text-md font-semibold">
-        {/* <span className={`${getColor("text")}`}>{percentage}%</span>{" "} */}
-        <span className="text-gray-500">Match</span>
+    <div className="flex items-center gap-2 min-w-0 sm:min-w-[8rem] w-full sm:w-auto">
+      {/* Optional text label for larger screens */}
+      <div className="hidden sm:block text-sm font-medium text-[#0336D0] whitespace-nowrap">
+        Match
       </div>
 
-      {/* Progress Bar with text inside for small screens */}
-      <div className="relative w-full sm:w-32 h-5 sm:h-4 bg-gray-400 rounded-full overflow-hidden shadow-md flex items-center">
+      {/* Progress bar wrapper */}
+      <div className="relative flex-1 min-w-0 h-5 sm:h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner border border-[#CDE6FB]">
         <div
-          className={`absolute left-0 top-0 h-full transition-all duration-500 ${getColor("bg")}`}
+          className={`absolute top-0 left-0 h-full transition-all duration-500 ${getColor("bg")}`} 
           style={{ width: `${percentage}%` }}
         />
-        <span className="absolute w-full text-xs sm:text-sm font-semibold text-center text-white">
+        <span className="absolute inset-0 flex items-center justify-center text-xs sm:text-[13px] font-semibold text-white drop-shadow-sm">
           {percentage}%
         </span>
       </div>

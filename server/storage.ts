@@ -95,7 +95,7 @@ export class DbStorage implements IStorage {
         mentor.location,
         mentor.mbti,
         mentor.experience,
-        mentor.imageUrl || null, // Ensure imageUrl doesn't break query
+        mentor.image_url || null, // Ensure imageUrl doesn't break query
         mentor.maxMatch !== undefined ? mentor.maxMatch : 3, // Default max_match to 3
         interests, // Pass directly as an array
         mentor.motivation || null,
@@ -153,39 +153,39 @@ export class DbStorage implements IStorage {
   }
   
 
-async deleteUsersByRole(role: string): Promise<void> {
-  await this.pool.query(
-    `DELETE FROM users WHERE role = $1`,
-    [role]
-  );
-}
+  async deleteUsersByRole(role: string): Promise<void> {
+    await this.pool.query(
+      `DELETE FROM users WHERE role = $1`,
+      [role]
+    );
+  }
 
-async getMatches(userId: number, role: 'mentor' | 'mentee'): Promise<Match[]> {
-  const matchRoleColumn = role === 'mentor' ? 'mentor_id' : 'mentee_id';
-  const oppositeRoleColumn = role === 'mentor' ? 'mentee_id' : 'mentor_id';
+  async getMatches(userId: number, role: 'mentor' | 'mentee'): Promise<Match[]> {
+    const matchRoleColumn = role === 'mentor' ? 'mentor_id' : 'mentee_id';
+    const oppositeRoleColumn = role === 'mentor' ? 'mentee_id' : 'mentor_id';
 
-  const res = await this.pool.query(
-    `SELECT 
-      m.*, 
-      u.name, 
-      u.last_work_role, 
-      u.industry_specific_needs, 
-      u.experience, 
-      u.skills, 
-      u.location, 
-      u.mbti 
-    FROM 
-      matches m
-      JOIN users u ON u.id = m.${oppositeRoleColumn}
-    WHERE 
-      m.${matchRoleColumn} = $1`, 
-    [userId]
-  );
+    const res = await this.pool.query(
+      `SELECT 
+        m.*, 
+        u.name, 
+        u.last_work_role, 
+        u.industry_specific_needs, 
+        u.experience, 
+        u.skills, 
+        u.location, 
+        u.mbti 
+      FROM 
+        matches m
+        JOIN users u ON u.id = m.${oppositeRoleColumn}
+      WHERE 
+        m.${matchRoleColumn} = $1`, 
+      [userId]
+    );
 
-  return res.rows.map((match) => ({
-    ...match
-  }));
-}
+    return res.rows.map((match) => ({
+      ...match
+    }));
+  }
 
 
   async createMatch(mentorId: number, menteeId: number, score: number): Promise<Match> {
@@ -264,7 +264,7 @@ async getMatches(userId: number, role: 'mentor' | 'mentee'): Promise<Match[]> {
     return {
       id: buddy.id,
       name: buddy.name,
-      imageUrl: buddy.image_url,
+      image_url: buddy.image_url,
       role: role === 'mentee' ? 'mentor' : 'mentee',
       matchId: buddy.matchid
     };

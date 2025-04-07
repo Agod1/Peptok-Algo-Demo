@@ -312,7 +312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const buddyId = req.params.buddyId;
     
     try {
-        const chats = await storage.getChatsByMatch(userId, buddyId);
+        const chats = await storage.getMessages(userId, buddyId);
         res.json(chats);
     } catch (error) {
         res.status(500).json({ error: (error as Error).message });
@@ -328,16 +328,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const buddy = await storage.getChatsBuddy(userId, buddyId, user.role);
       console.log('buddy', buddy);
-      if (buddy) {
-        req.session.userId = user.id;
-        req.session.matchId = buddy.id;
-
-        // connect to the chat room
-        if (!chatRooms.has(buddy.id)) {
-          chatRooms.set(buddy.id, new Set());
-        }
-        console.log('chatRooms', chatRooms);
-      }
       res.json(buddy);
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
@@ -346,19 +336,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Store message when WebSockets aren't available
   app.post("/api/chat/:buddyId", async (req, res) => {
-    const { text } = req.body;
-    const user = requireAuth(req);
-    const userId = user.id;
-    const buddyId = req.params.buddyId;
-
     try {
-      const chats = await storage.storeChatsByMatch(userId, buddyId);
-      res.json(chats);
+      const { text } = req.body;
+      const user = requireAuth(req);
+      const userId = user.id;
+      const buddyId = Number(req.params.buddyId); // Ensure buddyId is a number
+  
+      // Create an object matching the expected InsertMessage type
+      const chat = {
+        senderId: userId,
+        receiverId: buddyId,
+        content: text,
+      };
+  
+      // Store the message
+      const newMessage = await storage.createMessage(chat);
+  
+      res.status(201).json(newMessage);
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
     }
-    const newMessage = await Message.create({ sender: userId, receiver: buddyId, text });
-    res.status(201).json(newMessage);
   });
 
   // Accept a match
@@ -425,24 +422,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   wss.on("connection", (ws, req) => {
     const userId = req.session?.userId;
-    const matchId = req.session?.matchId;
     const user = req.user as User;
     const session = req.session;
-
-    console.log("WebSocket connected:", {userId, matchId, url: req.url, user, session});
-
+  
+    console.log("WebSocket connected:", { userId, url: req.url, user, session });
+  
     if (!userId) {
       ws.close();
       return;
     }
-
+  
     clients.set(userId, ws);
-
-    if (matchId) {
-      chatRooms.set(matchId, chatRooms.get(matchId) || new Set());
-      chatRooms.get(matchId).add(ws);
-    }
-
+  
     ws.on("message", async (data) => {
       try {
         console.log("Received message:", data.toString());
@@ -455,33 +446,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
         const savedMessage = await storage.createMessage({ ...message, type: "chat" });
     
-        if (message.matchId && chatRooms.has(message.matchId)) {
-          chatRooms.get(message.matchId).forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify({ type: "message", message: savedMessage }));
-            }
-          });
-        } else {
-          broadcastToUser(message.senderId, { type: "message", message: savedMessage });
-          broadcastToUser(message.receiverId, { type: "message", message: savedMessage });
-        }
+        broadcastToUser(message.senderId, { type: "message", message: savedMessage });
+        broadcastToUser(message.receiverId, { type: "message", message: savedMessage });
       } catch (error) {
         ws.send(JSON.stringify({ type: "error", error: error.message }));
       }
     });
-    
-
+  
     ws.on("close", () => {
       clients.delete(userId);
-      if (matchId && chatRooms.has(matchId)) {
-        chatRooms.get(matchId).delete(ws);
-        if (chatRooms.get(matchId).size === 0) {
-          chatRooms.delete(matchId);
-        }
-      }
       console.log("Disconnected:", userId);
     });
-  });
+  });  
 
   return httpServer;
 }

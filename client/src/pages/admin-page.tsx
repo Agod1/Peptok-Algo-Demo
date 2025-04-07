@@ -298,6 +298,7 @@ export default function AdminPage() {
         const data = await response.json();
         console.log("Matches created:", data);
         // Handle successful creation of matches (e.g., update UI or display success message)
+        //setSelectedMentees(mentee);
       } catch (error) {
         setError(error.message);
         console.error("Error creating matches:", error);
