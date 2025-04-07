@@ -16,7 +16,7 @@ const DialogBox: FC<DialogBoxProps> = ({ isVisible, message, onClose, onConfirm 
         <p className="text-md font-medium text-[#0336D0] mb-4">
           You've not engaged 24 hours after your match. Would you like to send a message?
         </p>
-        <p className="text-sm italic text-[#0336D0]/70 mb-6">"{message}"</p>
+        <p className="text-sm italic text-[#000]/70 mb-6">"{message}"</p>
         <div className="flex justify-end gap-2">
           <button
             className="px-4 py-2 text-[#0336D0] border border-[#0336D0] rounded-md hover:bg-[#0336D0]/10 transition"

@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
+import { parse } from "url";
 import {
   User,
   Match,
@@ -421,41 +422,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
   wss.on("connection", (ws, req) => {
-    const userId = req.session?.userId;
-    const user = req.user as User;
-    const session = req.session;
-  
-    console.log("WebSocket connected:", { userId, url: req.url, user, session });
+    const { query } = parse(req.url || "", true);
+    const userId = Number(query.userId);
+    const matchId = query.matchId as string;
   
     if (!userId) {
+      console.warn("Missing userId in WebSocket connection.");
       ws.close();
       return;
     }
   
     clients.set(userId, ws);
+    console.log(`WebSocket connected: userId=${userId}, matchId=${matchId}`);
   
     ws.on("message", async (data) => {
       try {
-        console.log("Received message:", data.toString());
         const message = JSON.parse(data.toString());
-    
-        if (message.action === "isOpened") {
-          console.log(`User ${userId} opened content/chat.`);
-          return;
+  
+        switch (message.type) {
+          case "chat": {
+            if (!message.receiverId || !message.text) {
+              console.warn("Invalid chat message format", message);
+              return;
+            }
+  
+            const savedMessage = await storage.createMessage({
+              senderId: userId,
+              receiverId: message.receiverId,
+              content: message.text,
+              type: "chat",
+            });
+  
+            broadcastToUser(userId, { type: "message", message: savedMessage });
+            broadcastToUser(message.receiverId, { type: "message", message: savedMessage });
+            break;
+          }
+  
+          case "presence": {
+            // Handle presence updates
+            console.log(`User ${userId} is online.`);
+            break;
+          }
+  
+          case "notification": {
+            // Example: handle some future notification logic
+            break;
+          }
+  
+          default:
+            console.warn("Unknown message type:", message.type);
         }
-    
-        const savedMessage = await storage.createMessage({ ...message, type: "chat" });
-    
-        broadcastToUser(message.senderId, { type: "message", message: savedMessage });
-        broadcastToUser(message.receiverId, { type: "message", message: savedMessage });
-      } catch (error) {
-        ws.send(JSON.stringify({ type: "error", error: error.message }));
+      } catch (err) {
+        console.error("WebSocket message error:", err);
+        ws.send(JSON.stringify({ type: "error", error: (err as Error).message }));
       }
     });
   
     ws.on("close", () => {
       clients.delete(userId);
-      console.log("Disconnected:", userId);
+      console.log("WebSocket disconnected:", userId);
     });
   });  
 

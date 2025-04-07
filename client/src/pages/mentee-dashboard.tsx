@@ -50,7 +50,7 @@ export default function MenteeDashboard() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#CDE6FB]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#0336D0]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#000]" />
       </div>
     );
   }
@@ -60,28 +60,28 @@ export default function MenteeDashboard() {
   const paginatedMentors = sortedMentors.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#CDE6FB] to-white text-[#0336D0]">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#CDE6FB] to-white text-[#000]">
       {/* Glass background glow */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute w-[180%] h-[180%] -top-1/2 -left-1/2 bg-gradient-to-tr from-[#0336D0] via-[#CDE6FB] to-white rounded-full blur-[140px] opacity-30" />
+        <div className="absolute w-[180%] h-[180%] -top-1/2 -left-1/2 bg-gradient-to-tr from-[#000] via-[#CDE6FB] to-white rounded-full blur-[140px] opacity-30" />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-10">
         {/* Glass card for user info */}
         <div className="flex items-center gap-5 mb-8 bg-white/30 backdrop-blur-lg p-6 rounded-2xl border border-[#CDE6FB] shadow-md">
-          <Avatar className="h-20 w-20 border-2 border-[#0336D0] shadow">
+          <Avatar className="h-20 w-20 border-2 border-[#000] shadow">
             <AvatarImage src={user?.image_url} />
             <AvatarFallback>{user?.name?.split("")[0]}</AvatarFallback>
           </Avatar>
           <div>
-            <h1 className="text-3xl font-bold text-[#0336D0]">{user?.name}</h1>
-            <p className="text-[#0336D0]/80">{user?.last_work_role || ""}</p>
+            <h1 className="text-3xl font-bold text-[#000]">{user?.name}</h1>
+            <p className="text-[#000]/80">{user?.last_work_role || ""}</p>
           </div>
         </div>
 
         {topMatches.length > 0 && (
           <>
-            <h2 className="text-2xl font-semibold mb-4 text-[#0336D0]">Top Matches</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-[#000]">Top Matches</h2>
             <div className="grid md:grid-cols-3 gap-6 mb-10">
               {topMatches.map((mentor) => (
                 <div className="bg-white/40 backdrop-blur-md p-4 rounded-xl border border-[#CDE6FB] shadow-sm">
@@ -95,9 +95,9 @@ export default function MenteeDashboard() {
               ))}
             </div>
           </>
-        )}
-
-        <h2 className="text-2xl font-semibold mb-4 text-[#0336D0]">All Mentors</h2>
+        )} 
+        {/* #0336D0 */}
+        <h2 className="text-2xl font-semibold mb-4 text-[#000]">All Mentors</h2>
         <div className="grid md:grid-cols-2 gap-6">
           {paginatedMentors.map((mentor) => (
             <div className="bg-white/40 backdrop-blur-md p-4 rounded-xl border border-[#CDE6FB] shadow-sm">
