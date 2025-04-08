@@ -157,6 +157,14 @@ export default function ChatPage() {
     setNewMessage("");
   };
 
+  const toTitleCase = (str: string) => {
+    return str
+      .toLowerCase()
+      .split(" ")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   return (
     <div className={`min-h-screen ${roleColors.background} py-8`}>
       <div className="container mx-auto px-4">
@@ -166,7 +174,7 @@ export default function ChatPage() {
             <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
           </Avatar>
           <div>
-            <h1 className={`text-2xl font-bold ${roleColors.title}`}>{user?.name}</h1>
+            <h1 className={`text-2xl font-bold ${roleColors.title}`}>{toTitleCase(user?.name || "")}</h1>
             <p className={roleColors.text}>{user?.last_work_role || ""}</p>
           </div>
         </div>
@@ -181,8 +189,8 @@ export default function ChatPage() {
                 <AvatarFallback>{buddy?.name?.charAt(0) || "U"}</AvatarFallback>
               </Avatar>
               <div>
-                <h3 className={`text-2xl font-semibold ${roleColors.title}`}>{buddy?.name}</h3>
-                <p className={roleColors.text}>{buddy?.role}</p>
+                <h3 className={`text-2xl font-semibold ${roleColors.title}`}>{toTitleCase(buddy?.name || "")}</h3>
+                <p className={roleColors.text}>{toTitleCase(buddy?.role || "")}</p>
               </div>
             </div>
 

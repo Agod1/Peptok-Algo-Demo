@@ -81,6 +81,8 @@ export default function AdminPage() {
     queryKey: ["/api/mentees"]
   });
 
+  const [singleSelectionMode, setSingleSelectionMode] = useState(true);
+
   const [matches, setMatches] = useState<{ [key: string]: Match[] }>({}); // To store matches for each mentee
 
   useEffect(() => {
@@ -269,7 +271,6 @@ export default function AdminPage() {
     }
   };
 
-
   const CreateMatchesButton = ({ mentee }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -277,7 +278,6 @@ export default function AdminPage() {
     const handleCreateMatches = async () => {
       setLoading(true);
       setError(null);
-
   
       try {
         const response = await fetch("/api/matches", {
@@ -286,8 +286,8 @@ export default function AdminPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            userId: mentee.id, // mentee's ID
-            weights: weights,   // weights object
+            userId: mentee.id,
+            weights: weights,
           }),
         });
   
@@ -297,8 +297,11 @@ export default function AdminPage() {
   
         const data = await response.json();
         console.log("Matches created:", data);
-        // Handle successful creation of matches (e.g., update UI or display success message)
-        //setSelectedMentees(mentee);
+  
+        // ✅ Fetch updated matches and update state
+        const updatedMatches = await getMatchesForMentee(mentee.id);
+        setMatches(prev => ({ ...prev, [mentee.id]: updatedMatches }));
+  
       } catch (error) {
         setError(error.message);
         console.error("Error creating matches:", error);
@@ -324,6 +327,7 @@ export default function AdminPage() {
       </div>
     );
   };
+  
 
   const renderListBadges = (list?: string[] | string) => {
     if (!list || (typeof list === "string" && list.trim() === "")) {
@@ -452,24 +456,42 @@ export default function AdminPage() {
             </CardTitle>
             <CardDescription>
               Select mentees to view their best mentor matches
+              <div className="flex items-center gap-2 mb-4">
+                <label className="text-sm font-medium">Single Selection Mode</label>
+                <Checkbox
+                  checked={singleSelectionMode}
+                  onCheckedChange={() => setSingleSelectionMode(prev => !prev)}
+                />
+              </div>
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[500px] pr-4">
               {mentees.map(mentee => (
                 <div key={mentee.id} className="flex items-start space-x-4 p-4 hover:bg-muted/50 rounded-lg transition-colors">
-                  <Checkbox
-                    checked={selectedMentees.has(mentee.id)}
-                    onCheckedChange={(checked) => {
-                      const newSelected = new Set(selectedMentees);
-                      if (checked) {
-                        newSelected.add(mentee.id);
-                      } else {
-                        newSelected.delete(mentee.id);
-                      }
-                      setSelectedMentees(newSelected);
-                    }}
-                  />
+                  {singleSelectionMode ? (
+                    <input
+                      type="radio"
+                      name="menteeSelection"
+                      checked={selectedMentees.has(mentee.id)}
+                      onChange={() => {
+                        setSelectedMentees(new Set([mentee.id]));
+                      }}
+                    />
+                  ) : (
+                    <Checkbox
+                      checked={selectedMentees.has(mentee.id)}
+                      onCheckedChange={(checked) => {
+                        const newSelected = new Set(selectedMentees);
+                        if (checked) {
+                          newSelected.add(mentee.id);
+                        } else {
+                          newSelected.delete(mentee.id);
+                        }
+                        setSelectedMentees(newSelected);
+                      }}
+                    />
+                  )}
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <div className="font-medium">{mentee.name}</div>
